@@ -9,12 +9,13 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "vercel-build": "echo 'Skipping build step'"
   },
   "dependencies": {
     "@shopify/shopify-api": "^11.0.0",
     "@shopify/shopify-app-express": "^4.0.0",
-    "better-sqlite3": "^9.4.0",
+    "better-sqlite3": "^11.0.0",
     "dotenv": "^16.4.0",
     "express": "^4.19.2",
     "node-fetch": "^3.3.2",
