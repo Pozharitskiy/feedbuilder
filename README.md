@@ -44,6 +44,8 @@ vercel --prod
 
 ```
 feedbuilder/
+├── api/
+│   └── index.ts           # Vercel serverless entry point
 ├── src/
 │   ├── index.ts           # Express сервер
 │   ├── shopify.ts         # Shopify API
@@ -54,6 +56,7 @@ feedbuilder/
 │       ├── auth.ts        # OAuth
 │       ├── feed.ts        # Публичный фид
 │       └── webhooks.ts    # Webhooks
+├── .nvmrc                 # Node.js версия
 ├── package.json
 ├── tsconfig.json
 └── vercel.json
