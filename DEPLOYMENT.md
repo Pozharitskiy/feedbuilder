@@ -1,223 +1,129 @@
-# 🚀 Деплой на Vercel - Пошаговая инструкция
+# Deployment Guide for Vercel
 
-## Шаг 1: Установка зависимостей
+## Prerequisites
+
+1. **Turso Account** (for serverless SQLite database)
+   - Sign up at [https://turso.tech](https://turso.tech)
+   - Create a new database
+   - Get your database URL and auth token
+
+2. **Shopify App**
+   - Create a Shopify app in your Partner Dashboard
+   - Get API Key and API Secret
+
+## Step 1: Set up Turso Database
 
 ```bash
-npm install
+# Install Turso CLI
+curl -sSfL https://get.tur.so/install.sh | bash
+
+# Login
+turso auth login
+
+# Create a database
+turso db create feedbuilder
+
+# Get the database URL
+turso db show feedbuilder
+
+# Create an auth token
+turso db tokens create feedbuilder
 ```
 
-## Шаг 2: Первый деплой на Vercel (получить URL)
+## Step 2: Configure Vercel Environment Variables
 
-```bash
-# Установите Vercel CLI (если еще не установлен)
-npm i -g vercel
-
-# Логин в Vercel
-vercel login
-
-# Деплой проекта (первый раз)
-vercel
-```
-
-**Важно:** Нажимайте Enter на всех вопросах (default настройки подходят).
-
-После деплоя вы получите URL типа:
+In your Vercel project settings, add these environment variables:
 
 ```
-https://feedbuilder-xxxxx.vercel.app
-```
-
-**💾 Сохраните этот URL!** Он понадобится для Shopify App.
-
-## Шаг 3: Создать App в Shopify Partners
-
-1. Зайдите на https://partners.shopify.com/
-2. **Apps** → **Create app** → **Create app manually**
-3. Заполните:
-
-   - **App name:** FeedBuilder (или любое имя)
-   - **App URL:** `https://feedbuilder-xxxxx.vercel.app`
-
-4. **Configuration** → **URLs**:
-
-   - **App URL:** `https://feedbuilder-xxxxx.vercel.app/install`
-   - **Allowed redirection URL(s):**
-     ```
-     https://feedbuilder-xxxxx.vercel.app/auth
-     https://feedbuilder-xxxxx.vercel.app/auth/callback
-     ```
-
-5. **Configuration** → **API access scopes**:
-
-   - Включите: `read_products`, `read_inventory`
-
-6. **Configuration** → **Webhooks**:
-
-   - **Products update:** `https://feedbuilder-xxxxx.vercel.app/webhooks/products/update`
-
-7. **💾 Скопируйте из Client credentials:**
-   - **Client ID** (это ваш `SHOPIFY_API_KEY`)
-   - **Client secret** (это ваш `SHOPIFY_API_SECRET`)
-
-## Шаг 4: Добавить переменные окружения в Vercel
-
-### Вариант A: Через Vercel Dashboard (проще)
-
-1. Зайдите на https://vercel.com/dashboard
-2. Выберите проект `feedbuilder`
-3. **Settings** → **Environment Variables**
-4. Добавьте переменные (для **Production, Preview, Development**):
-
-```
-SHOPIFY_API_KEY=ваш_client_id_из_шага_3
-SHOPIFY_API_SECRET=ваш_client_secret_из_шага_3
-APP_URL=https://feedbuilder-xxxxx.vercel.app
-SCOPES=read_products,read_inventory
-SESSION_COOKIE_NAME=feedbuilder_sess
+SHOPIFY_API_KEY=your_shopify_api_key
+SHOPIFY_API_SECRET=your_shopify_api_secret
+SCOPES=read_products,write_products
+APP_URL=https://your-app.vercel.app
+TURSO_DATABASE_URL=libsql://your-database.turso.io
+TURSO_AUTH_TOKEN=your_turso_auth_token
 NODE_ENV=production
 ```
 
-### Вариант B: Через CLI (быстрее)
+## Step 3: Deploy to Vercel
+
+### Option A: Deploy via GitHub
+
+1. Push your code to GitHub
+2. Import the repository in Vercel
+3. Vercel will automatically deploy
+
+### Option B: Deploy via Vercel CLI
 
 ```bash
-vercel env add SHOPIFY_API_KEY
-# Введите ваш Client ID, выберите Production+Preview+Development
+# Install Vercel CLI
+npm i -g vercel
 
-vercel env add SHOPIFY_API_SECRET
-# Введите ваш Client Secret, выберите Production+Preview+Development
-
-vercel env add APP_URL
-# Введите https://feedbuilder-xxxxx.vercel.app
-
-vercel env add SCOPES
-# Введите: read_products,read_inventory
-
-vercel env add SESSION_COOKIE_NAME
-# Введите: feedbuilder_sess
-
-vercel env add NODE_ENV
-# Введите: production
-```
-
-## Шаг 5: Повторный деплой с переменными
-
-```bash
-# Production деплой
+# Deploy
 vercel --prod
 ```
 
-Готово! 🎉
+## Step 4: Update Shopify App URLs
 
-## Шаг 6: Установить приложение в тестовый магазин
+In your Shopify Partner Dashboard, update your app URLs:
 
-1. В Shopify Partners создайте **Development store** (если еще нет)
-2. Перейдите по ссылке:
-   ```
-   https://feedbuilder-xxxxx.vercel.app/install?shop=ваш-магазин.myshopify.com
-   ```
-3. Авторизуйтесь и установите приложение
+- **App URL**: `https://your-app.vercel.app`
+- **Allowed redirection URL(s)**: `https://your-app.vercel.app/auth/callback`
 
-## Шаг 7: Загрузить продукты в кэш
+## Local Development
 
-После установки запустите первую загрузку:
+For local development, you can use a local SQLite file without Turso:
 
 ```bash
-curl -X POST "https://feedbuilder-xxxxx.vercel.app/admin/regenerate?shop=ваш-магазин.myshopify.com"
+# Copy environment variables
+cp .env.example .env
+
+# Edit .env and fill in your Shopify credentials
+# You can leave TURSO_* variables empty for local dev
+
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
 ```
 
-## Шаг 8: Получить feed токен
+The app will automatically use a local SQLite file (`feedbuilder.db`) when `TURSO_DATABASE_URL` is not set.
 
-Feed токен создается автоматически при установке. Чтобы узнать его:
+## Architecture
 
-```bash
-curl "https://feedbuilder-xxxxx.vercel.app/admin/feed-url?shop=ваш-магазин.myshopify.com"
-```
+- **API**: Express.js app running as Vercel serverless function
+- **Database**: Turso (libSQL) - serverless SQLite compatible database
+- **Entry Point**: `/api/index.ts` (Vercel serverless function)
 
-Вернет:
-```json
-{
-  "feed_url": "https://feedbuilder-xxxxx.vercel.app/feed/uuid-токен.xml",
-  "feed_token": "uuid-токен"
-}
-```
+## Troubleshooting
 
-## Шаг 9: Проверить XML фид
+### Database connection issues
 
-```bash
-curl "https://feedbuilder-xxxxx.vercel.app/feed/{FEED_TOKEN}.xml"
-```
+If you see database errors, verify:
+1. `TURSO_DATABASE_URL` is correctly formatted: `libsql://your-db.turso.io`
+2. `TURSO_AUTH_TOKEN` is valid and not expired
 
-Должен вернуться XML с вашими продуктами! ✅
+### Shopify auth issues
 
----
+If OAuth fails:
+1. Verify `APP_URL` matches your Vercel deployment URL
+2. Check redirect URLs in Shopify Partner Dashboard
+3. Ensure `SHOPIFY_API_KEY` and `SHOPIFY_API_SECRET` are correct
 
-## 🔄 Обновление приложения
+## Testing the Deployment
 
-При изменении кода:
+1. **Install endpoint**: `https://your-app.vercel.app/install?shop=yourstore.myshopify.com`
+2. **Feed URL**: `https://your-app.vercel.app/feed/{token}.xml`
+3. **Regenerate products**: `POST https://your-app.vercel.app/admin/regenerate?shop=yourstore.myshopify.com`
 
-```bash
-# Коммит изменений
-git add .
-git commit -m "update"
-git push
+## Monitoring
 
-# Vercel автоматически задеплоит
-# Или вручную:
-vercel --prod
-```
+- Check Vercel logs for runtime errors
+- Monitor Turso dashboard for database usage
+- Set up error tracking (Sentry, LogRocket, etc.) for production
 
----
+## Cost Considerations
 
-## 🐛 Отладка
-
-Просмотр логов:
-
-```bash
-vercel logs
-```
-
-Или в dashboard: https://vercel.com/dashboard → ваш проект → **Deployments** → **Functions**
-
----
-
-## ⚠️ Важно про SQLite на Vercel
-
-SQLite хранится в `/tmp` и **данные НЕ персистентны**!
-
-При каждом cold start данные могут пропасть. Для production используйте:
-
-### Быстрое решение: Vercel Postgres
-
-```bash
-# Создать БД
-vercel postgres create
-
-# В проекте установить
-npm install @vercel/postgres
-
-# Обновить src/db.ts для использования Postgres
-```
-
-### Альтернативы:
-
-- **Turso** - serverless SQLite с персистентностью
-- **PlanetScale** - serverless MySQL
-- **Supabase** - PostgreSQL + real-time
-
----
-
-## 📝 Чек-лист
-
-- [ ] `npm install`
-- [ ] `vercel` (первый деплой)
-- [ ] Создать Shopify App
-- [ ] Настроить URLs и webhooks в Shopify
-- [ ] Добавить env переменные в Vercel
-- [ ] `vercel --prod` (повторный деплой)
-- [ ] Установить app в магазин
-- [ ] Загрузить продукты (`/admin/regenerate`)
-- [ ] Получить feed URL
-- [ ] Проверить XML фид
-
-**Готово!** 🎉
-
+- **Vercel**: Free tier includes 100GB bandwidth, sufficient for most use cases
+- **Turso**: Free tier includes 9GB storage, 1 billion row reads per month
+- Both scale automatically with usage

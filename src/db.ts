@@ -1,17 +1,17 @@
-import Database from "better-sqlite3";
+import { createClient } from "@libsql/client";
 import { randomUUID } from "crypto";
-import { join } from "path";
 
-// Для Vercel используем /tmp, для локальной разработки - текущую директорию
-const dbPath =
-  process.env.VERCEL === "1"
-    ? join("/tmp", "feedbuilder.db")
-    : "feedbuilder.db";
+// For Vercel, use Turso; for local, use local SQLite file
+const dbUrl = process.env.TURSO_DATABASE_URL || "file:feedbuilder.db";
+const authToken = process.env.TURSO_AUTH_TOKEN;
 
-const db = new Database(dbPath);
-db.pragma("journal_mode = WAL");
+const db = createClient({
+  url: dbUrl,
+  authToken: authToken,
+});
 
-db.exec(`
+// Initialize database tables
+await db.execute(`
 CREATE TABLE IF NOT EXISTS shops (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   shop_domain TEXT UNIQUE NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS shops (
 );
 `);
 
-db.exec(`
+await db.execute(`
 CREATE TABLE IF NOT EXISTS products_cache (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   shop_domain TEXT NOT NULL,
@@ -33,56 +33,77 @@ CREATE TABLE IF NOT EXISTS products_cache (
 );
 `);
 
-export function upsertShop(shop_domain: string, access_token: string) {
-  const existing = db
-    .prepare("SELECT * FROM shops WHERE shop_domain=?")
-    .get(shop_domain) as any;
+export async function upsertShop(shop_domain: string, access_token: string) {
+  const existing = await db.execute({
+    sql: "SELECT * FROM shops WHERE shop_domain=?",
+    args: [shop_domain],
+  });
+  
   const now = new Date().toISOString();
-  if (existing) {
-    db.prepare(
-      "UPDATE shops SET access_token=?, updated_at=? WHERE shop_domain=?"
-    ).run(access_token, now, shop_domain);
-    return existing.feed_token as string;
+  if (existing.rows.length > 0) {
+    await db.execute({
+      sql: "UPDATE shops SET access_token=?, updated_at=? WHERE shop_domain=?",
+      args: [access_token, now, shop_domain],
+    });
+    return existing.rows[0].feed_token as string;
   } else {
     const feedToken = randomUUID();
-    db.prepare(
-      "INSERT INTO shops (shop_domain, access_token, feed_token, updated_at) VALUES (?,?,?,?)"
-    ).run(shop_domain, access_token, feedToken, now);
+    await db.execute({
+      sql: "INSERT INTO shops (shop_domain, access_token, feed_token, updated_at) VALUES (?,?,?,?)",
+      args: [shop_domain, access_token, feedToken, now],
+    });
     return feedToken;
   }
 }
 
-export function getShopByFeedToken(feedToken: string) {
-  return db.prepare("SELECT * FROM shops WHERE feed_token=?").get(feedToken);
+export async function getShopByFeedToken(feedToken: string) {
+  const result = await db.execute({
+    sql: "SELECT * FROM shops WHERE feed_token=?",
+    args: [feedToken],
+  });
+  return result.rows[0] || null;
 }
 
-export function getShop(shop_domain: string) {
-  return db.prepare("SELECT * FROM shops WHERE shop_domain=?").get(shop_domain);
+export async function getShop(shop_domain: string) {
+  const result = await db.execute({
+    sql: "SELECT * FROM shops WHERE shop_domain=?",
+    args: [shop_domain],
+  });
+  return result.rows[0] || null;
 }
 
-export function saveProductsCache(shop_domain: string, payload: any) {
-  const existing = db
-    .prepare("SELECT id FROM products_cache WHERE shop_domain=?")
-    .get(shop_domain);
+export async function saveProductsCache(shop_domain: string, payload: any) {
+  const existing = await db.execute({
+    sql: "SELECT id FROM products_cache WHERE shop_domain=?",
+    args: [shop_domain],
+  });
+  
   const json = JSON.stringify(payload);
   const now = new Date().toISOString();
-  if (existing) {
-    db.prepare(
-      "UPDATE products_cache SET payload_json=?, updated_at=? WHERE shop_domain=?"
-    ).run(json, now, shop_domain);
+  
+  if (existing.rows.length > 0) {
+    await db.execute({
+      sql: "UPDATE products_cache SET payload_json=?, updated_at=? WHERE shop_domain=?",
+      args: [json, now, shop_domain],
+    });
   } else {
-    db.prepare(
-      "INSERT INTO products_cache (shop_domain, payload_json, updated_at) VALUES (?,?,?)"
-    ).run(shop_domain, json, now);
+    await db.execute({
+      sql: "INSERT INTO products_cache (shop_domain, payload_json, updated_at) VALUES (?,?,?)",
+      args: [shop_domain, json, now],
+    });
   }
 }
 
-export function loadProductsCache(shop_domain: string) {
-  const row = db
-    .prepare("SELECT payload_json FROM products_cache WHERE shop_domain=?")
-    .get(shop_domain) as any;
-  return row ? JSON.parse(row.payload_json as string) : null;
+export async function loadProductsCache(shop_domain: string) {
+  const result = await db.execute({
+    sql: "SELECT payload_json FROM products_cache WHERE shop_domain=?",
+    args: [shop_domain],
+  });
+  
+  if (result.rows.length > 0) {
+    return JSON.parse(result.rows[0].payload_json as string);
+  }
+  return null;
 }
 
 export default db;
-

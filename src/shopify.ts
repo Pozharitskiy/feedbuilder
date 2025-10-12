@@ -7,11 +7,13 @@ const appUrl = process.env.APP_URL!;
 const apiKey = process.env.SHOPIFY_API_KEY!;
 const apiSecret = process.env.SHOPIFY_API_SECRET!;
 const scopes = (process.env.SCOPES || "").split(",");
+const hostName = new URL(appUrl).hostname;
 
 export const shopify = shopifyApp({
   api: {
     apiKey,
     apiSecretKey: apiSecret,
+    hostName,
     apiVersion: "2024-10" as any,
     scopes,
   },

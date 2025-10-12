@@ -12,7 +12,7 @@ export const authRoutes = (app: any) => {
     const session = result.session;
     const shopDomain = session.shop;
     const accessToken = session.accessToken;
-    const feedToken = upsertShop(shopDomain, accessToken);
+    const feedToken = await upsertShop(shopDomain, accessToken);
     // Редирект в админку Shopify (или на страницу настроек)
     res.redirect(`https://${shopDomain}/admin/apps`);
   });
