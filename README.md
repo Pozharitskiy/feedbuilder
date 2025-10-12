@@ -21,16 +21,19 @@ npm start
 ### Render
 
 **Build Command:**
+
 ```bash
 corepack enable && corepack prepare npm@10.8.2 --activate && npm ci && npm run build
 ```
 
 **Start Command:**
+
 ```bash
 node dist/index.js
 ```
 
 После первого деплоя или при проблемах с кешем:
+
 1. Settings → Build Command — добавьте команду выше (обязательно `&&`, не `;`)
 2. Clear build cache
 3. Manual Deploy → Deploy latest commit
@@ -40,6 +43,7 @@ node dist/index.js
 Достаточно наличия `api/index.ts` и `engines.node=20.x` в `package.json`.
 
 При желании можно добавить `vercel.json`:
+
 ```json
 {
   "functions": {
@@ -68,4 +72,3 @@ node dist/index.js
 - Express
 - Shopify API
 - Turso (libSQL)
-
