@@ -4,10 +4,8 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": "20.x",
-    "npm": "9.x"
+    "node": ">=20"
   },
-  "packageManager": "npm@9.8.1",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
@@ -17,7 +15,7 @@
   "dependencies": {
     "@shopify/shopify-api": "^11.0.0",
     "@shopify/shopify-app-express": "^4.0.0",
-    "better-sqlite3": "^11.0.0",
+    "better-sqlite3": "^12.4.1",
     "dotenv": "^16.4.0",
     "express": "^4.19.2",
     "node-fetch": "^3.3.2",
