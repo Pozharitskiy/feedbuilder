@@ -4,11 +4,12 @@ import { upsertShop } from "../db.js";
 
 export const authRoutes = (app: any) => {
   app.get("/auth", async (req: Request, res: Response) => {
-    return shopify.auth.begin(req, res);
+    return (shopify.auth.begin as any)({ req, res });
   });
 
   app.get("/auth/callback", async (req: Request, res: Response) => {
-    const { session } = await shopify.auth.callback(req, res);
+    const result = await (shopify.auth.callback as any)({ req, res });
+    const session = result.session;
     const shopDomain = session.shop;
     const accessToken = session.accessToken;
     const feedToken = upsertShop(shopDomain, accessToken);

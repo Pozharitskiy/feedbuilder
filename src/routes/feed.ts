@@ -5,7 +5,7 @@ import { buildXmlFeed, flattenProducts } from "../feeds.js";
 export const feedRoutes = (app: any) => {
   app.get("/feed/:token.xml", async (req: Request, res: Response) => {
     const token = req.params.token;
-    const shop = getShopByFeedToken(token);
+    const shop = getShopByFeedToken(token) as any;
     if (!shop) return res.status(404).send("Invalid token");
 
     const cache = loadProductsCache(shop.shop_domain);

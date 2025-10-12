@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS products_cache (
 export function upsertShop(shop_domain: string, access_token: string) {
   const existing = db
     .prepare("SELECT * FROM shops WHERE shop_domain=?")
-    .get(shop_domain);
+    .get(shop_domain) as any;
   const now = new Date().toISOString();
   if (existing) {
     db.prepare(
@@ -80,7 +80,7 @@ export function saveProductsCache(shop_domain: string, payload: any) {
 export function loadProductsCache(shop_domain: string) {
   const row = db
     .prepare("SELECT payload_json FROM products_cache WHERE shop_domain=?")
-    .get(shop_domain);
+    .get(shop_domain) as any;
   return row ? JSON.parse(row.payload_json as string) : null;
 }
 

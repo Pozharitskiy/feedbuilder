@@ -4,7 +4,7 @@ import { getShop, saveProductsCache } from "../db.js";
 import { PRODUCTS_QUERY } from "../queries.js";
 
 async function refreshProducts(shop_domain: string) {
-  const shop = getShop(shop_domain);
+  const shop = getShop(shop_domain) as any;
   if (!shop) return;
   const client = new shopify.api.clients.Graphql({
     session: { shop: shop_domain, accessToken: shop.access_token } as any,
@@ -13,7 +13,7 @@ async function refreshProducts(shop_domain: string) {
   let cursor: string | null = null;
   let allEdges: any[] = [];
   do {
-    const resp = await client.query({
+    const resp: any = await client.query({
       data: { query: PRODUCTS_QUERY, variables: { cursor } },
     });
     const chunk = resp.body.data.products;
@@ -45,7 +45,7 @@ export const webhookRoutes = (app: any) => {
   app.get("/admin/feed-url", async (req: Request, res: Response) => {
     const { shop } = req.query as any;
     if (!shop) return res.status(400).send("missing shop");
-    const shopData = getShop(shop);
+    const shopData = getShop(shop) as any;
     if (!shopData) return res.status(404).send("shop not found");
     const feedUrl = `${process.env.APP_URL}/feed/${shopData.feed_token}.xml`;
     res.json({ feed_url: feedUrl, feed_token: shopData.feed_token });

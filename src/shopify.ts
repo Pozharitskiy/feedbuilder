@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { shopifyApp, LATEST_API_VERSION } from "@shopify/shopify-app-express";
-import { Shopify, ApiVersion } from "@shopify/shopify-api";
+import { shopifyApp } from "@shopify/shopify-app-express";
+import { ApiVersion } from "@shopify/shopify-api";
 import express from "express";
 
 const appUrl = process.env.APP_URL!;
@@ -12,7 +12,7 @@ export const shopify = shopifyApp({
   api: {
     apiKey,
     apiSecretKey: apiSecret,
-    apiVersion: LATEST_API_VERSION as ApiVersion,
+    apiVersion: "2024-10" as any,
     scopes,
   },
   auth: {
@@ -30,7 +30,7 @@ export function ensureInstalled() {
   router.get("/install", async (req, res) => {
     const { shop } = req.query as any;
     if (!shop) return res.status(400).send("Missing shop param");
-    return await shopify.auth.begin(req, res);
+    return await (shopify.auth.begin as any)({ req, res });
   });
   return router;
 }
