@@ -15,14 +15,14 @@ authRoutes(app);
 webhookRoutes(app);
 feedRoutes(app);
 
-// Для локальной разработки
-if (process.env.NODE_ENV !== "production") {
+// Экспорт для Vercel serverless
+export default app;
+
+// Для Render/локально — обычный long-running сервер
+if (!process.env.VERCEL) {
   const port = Number(process.env.PORT || 3000);
   app.listen(port, () => {
     console.log(`FeedBuilder running on http://localhost:${port}`);
   });
 }
-
-// Экспорт для Vercel serverless
-export default app;
 
