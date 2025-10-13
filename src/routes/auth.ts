@@ -4,8 +4,10 @@ import { upsertShop } from "../db.js";
 
 export const authRoutes = (app: any) => {
   app.get("/auth", async (req: Request, res: Response) => {
-    console.log("auth");
-    return (shopify.auth.begin as any)({ req, res });
+    console.log("auth", req.query);
+    const redirect = await (shopify.auth.begin as any)({ req, res });
+    console.log("Redirect sent to Shopify");
+    return redirect;
   });
 
   app.get("/auth/callback", async (req: Request, res: Response) => {
