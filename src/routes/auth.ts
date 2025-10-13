@@ -9,13 +9,20 @@ export const authRoutes = (app: any) => {
   });
 
   app.get("/auth/callback", async (req: Request, res: Response) => {
-    console.log("auth/callback");
-    const result = await (shopify.auth.callback as any)({ req, res });
-    const session = result.session;
+    console.log("auth/callback hit", req.query);
+
+    const session = await (shopify.auth.callback as any)({ req, res });
+    if (!session) {
+      console.error("OAuth callback failed, no session.");
+      return res.status(400).send("OAuth failed.");
+    }
+
     const shopDomain = session.shop;
     const accessToken = session.accessToken;
-    const feedToken = await upsertShop(shopDomain, accessToken);
-    // Редирект в админку Shopify (или на страницу настроек)
+
+    await upsertShop(shopDomain, accessToken);
+    console.log("✅ Authorized:", shopDomain);
+
     res.redirect(`https://${shopDomain}/admin/apps`);
   });
 };
