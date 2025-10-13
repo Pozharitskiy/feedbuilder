@@ -4,10 +4,12 @@ import { upsertShop } from "../db.js";
 
 export const authRoutes = (app: any) => {
   app.get("/auth", async (req: Request, res: Response) => {
+    console.log("auth");
     return (shopify.auth.begin as any)({ req, res });
   });
 
   app.get("/auth/callback", async (req: Request, res: Response) => {
+    console.log("auth/callback");
     const result = await (shopify.auth.callback as any)({ req, res });
     const session = result.session;
     const shopDomain = session.shop;
@@ -17,4 +19,3 @@ export const authRoutes = (app: any) => {
     res.redirect(`https://${shopDomain}/admin/apps`);
   });
 };
-
