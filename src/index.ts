@@ -15,6 +15,10 @@ authRoutes(app);
 webhookRoutes(app);
 feedRoutes(app);
 
+app.get("/", (req, res) => {
+  res.send("✅ FeedBuilder backend is running");
+});
+
 // Экспорт для Vercel serverless
 export default app;
 
@@ -25,4 +29,3 @@ if (!process.env.VERCEL) {
     console.log(`FeedBuilder running on http://localhost:${port}`);
   });
 }
-

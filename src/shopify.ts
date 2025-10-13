@@ -12,7 +12,7 @@ export const shopify = shopifyApp({
     apiSecretKey: process.env.SHOPIFY_API_SECRET!,
     scopes: (process.env.SCOPES || "").split(","),
     hostName,
-    apiVersion: ApiVersion.October22 as any,
+    apiVersion: ApiVersion.October25 as any,
   },
   auth: {
     path: "/auth",
