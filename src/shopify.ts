@@ -3,11 +3,15 @@ import { shopifyApp } from "@shopify/shopify-app-express";
 import { ApiVersion } from "@shopify/shopify-api";
 import express from "express";
 
+const appUrl = process.env.APP_URL!;
+const hostName = new URL(appUrl).hostname;
+
 export const shopify = shopifyApp({
   api: {
     apiKey: process.env.SHOPIFY_API_KEY!,
     apiSecretKey: process.env.SHOPIFY_API_SECRET!,
     scopes: (process.env.SCOPES || "").split(","),
+    hostName,
     apiVersion: ApiVersion.October22 as any,
   },
   auth: {
@@ -17,7 +21,7 @@ export const shopify = shopifyApp({
   webhooks: {
     path: "/webhooks",
   },
-  appUrl: process.env.APP_URL!,
+  appUrl,
 });
 
 export function ensureInstalled() {
