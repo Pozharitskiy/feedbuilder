@@ -4,15 +4,18 @@ FROM node:20-alpine
 # Рабочая директория
 WORKDIR /app
 
-# Скопировать package.json и установить зависимости
+# Скопировать package.json и установить ВСЕ зависимости (включая dev для сборки)
 COPY package*.json ./
-RUN npm install --production
+RUN npm install
 
 # Скопировать исходники
 COPY . .
 
-# Сборка (если используешь TypeScript)
+# Сборка TypeScript
 RUN npm run build
+
+# Удалить dev dependencies после сборки (опционально, для уменьшения размера)
+RUN npm prune --production
 
 # Fly передаст порт через $PORT
 ENV PORT=8080
