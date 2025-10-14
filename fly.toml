@@ -1,0 +1,14 @@
+app = "feedbuilderly"
+primary_region = "fra"
+
+[env]
+  APP_URL = "https://feedbuilderly.fly.dev"
+  SCOPES = "read_products,read_inventory"
+  SESSION_COOKIE_NAME = "feedbuilder_sess"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
