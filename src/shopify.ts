@@ -26,10 +26,11 @@ export const shopify = shopifyApp({
 
 export function ensureInstalled() {
   const router = express.Router();
-  router.get("/", async (req, res) => {
+  router.get("/", (req, res) => {
     const { shop } = req.query as any;
     if (!shop) return res.status(400).send("Missing shop param");
-    return await (shopify.auth.begin as any)({ req, res });
+    // важно: вернуть сам Promise, не await!
+    return (shopify.auth.begin as any)({ req, res });
   });
   return router;
 }
