@@ -26,7 +26,7 @@ export const shopify = shopifyApp({
 
 export function ensureInstalled() {
   const router = express.Router();
-  router.get("/install", async (req, res) => {
+  router.get("/", async (req, res) => {
     const { shop } = req.query as any;
     if (!shop) return res.status(400).send("Missing shop param");
     return await (shopify.auth.begin as any)({ req, res });

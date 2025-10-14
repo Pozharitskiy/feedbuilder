@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 
 app.use(shopify.cspHeaders());
-app.use(ensureInstalled());
+app.use("/install", ensureInstalled());
 
 authRoutes(app);
 webhookRoutes(app);
