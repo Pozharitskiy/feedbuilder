@@ -1,25 +1,12 @@
-# Базовый образ Node.js
 FROM node:20-alpine
-
-# Рабочая директория
 WORKDIR /app
 
-# Скопировать package.json и установить зависимости
 COPY package*.json ./
 RUN npm install --production
 
-# Скопировать исходники
-COPY . .
+# Скопировать только скомпилированный JS (без tsc в контейнере)
+COPY dist ./dist
 
-# Установить TypeScript глобально для сборки
-RUN npm install -g typescript
-
-# Сборка (если используешь TypeScript)
-RUN npm run build
-
-# Fly передаст порт через $PORT
 ENV PORT=8080
 EXPOSE 8080
-
-# Запуск
 CMD ["node", "dist/index.js"]
