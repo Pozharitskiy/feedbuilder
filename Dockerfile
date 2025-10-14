@@ -1,28 +1,21 @@
-# Stage 1: Build
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-# Установить зависимости
-COPY package*.json ./
-RUN npm ci
-
-# Скопировать исходники и собрать
-COPY . .
-RUN npm run build
-
-# Stage 2: Production
+# Базовый образ Node.js
 FROM node:20-alpine
 
+# Рабочая директория
 WORKDIR /app
 
-# Скопировать package.json и установить только production зависимости
+# Скопировать package.json и установить зависимости
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --production
 
-# Скопировать собранные файлы из builder stage
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/feedbuilder.db ./feedbuilder.db
+# Скопировать исходники
+COPY . .
+
+# Установить TypeScript глобально для сборки
+RUN npm install -g typescript
+
+# Сборка (если используешь TypeScript)
+RUN npm run build
 
 # Fly передаст порт через $PORT
 ENV PORT=8080
