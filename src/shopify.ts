@@ -1,17 +1,33 @@
 import "dotenv/config";
 import { shopifyApp } from "@shopify/shopify-app-express";
+import { ApiVersion } from "@shopify/shopify-api";
+import { SQLiteSessionStorage } from "@shopify/shopify-app-session-storage-sqlite";
 import express from "express";
+import path from "path";
 
 const appUrl = process.env.APP_URL!;
 const hostName = new URL(appUrl).hostname;
+
+// Инициализация SQLite session storage
+const dbPath = path.join(process.cwd(), "feedbuilder.db");
+const sessionStorage = new SQLiteSessionStorage(dbPath);
+
+console.log("🔧 Shopify config:", {
+  appUrl,
+  hostName,
+  apiKey: process.env.SHOPIFY_API_KEY,
+  hasSecret: !!process.env.SHOPIFY_API_SECRET,
+  scopes: process.env.SCOPES,
+  dbPath,
+});
 
 export const shopify = shopifyApp({
   api: {
     apiKey: process.env.SHOPIFY_API_KEY!,
     apiSecretKey: process.env.SHOPIFY_API_SECRET!,
-    scopes: (process.env.SCOPES || "").split(","),
+    scopes: (process.env.SCOPES || "read_products").split(","),
     hostName,
-    apiVersion: "2025-10" as any,
+    apiVersion: ApiVersion.October24,
   },
   auth: {
     path: "/auth",
@@ -20,6 +36,7 @@ export const shopify = shopifyApp({
   webhooks: {
     path: "/webhooks",
   },
+  sessionStorage,
   appUrl,
 });
 
@@ -32,13 +49,6 @@ export function ensureInstalled() {
   // Middleware для проверки shop параметра
   const validateShop = (req: any, res: any, next: any) => {
     console.log("📦 Install request:", req.query);
-    console.log("🔧 Shopify config:", {
-      appUrl,
-      hostName,
-      apiKey: process.env.SHOPIFY_API_KEY,
-      hasSecret: !!process.env.SHOPIFY_API_SECRET,
-      scopes: process.env.SCOPES,
-    });
     const { shop } = req.query;
     if (!shop) {
       console.log("❌ Missing shop parameter");

@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { shopify } from "../shopify.js";
+import { sessionStorage } from "../db.js";
 
 export const authRoutes = (app: any) => {
   // Используем middleware напрямую
@@ -22,11 +23,30 @@ export const authRoutes = (app: any) => {
       const shopDomain = session.shop;
       const accessToken = session.accessToken;
 
-      console.log(
-        "✅ Authorized:",
-        shopDomain,
-        accessToken ? "Token OK" : "No token"
-      );
+      // Сохраняем в нашу БД для быстрого доступа
+      try {
+        sessionStorage.saveSession({
+          id: session.id,
+          shop: shopDomain,
+          accessToken: accessToken,
+          scopes: session.scope || "",
+          isOnline: session.isOnline || false,
+          expiresAt: session.expires
+            ? new Date(session.expires).getTime()
+            : undefined,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+
+        console.log(
+          "✅ Shop authorized and saved:",
+          shopDomain,
+          "| Scopes:",
+          session.scope
+        );
+      } catch (error) {
+        console.error("❌ Failed to save session:", error);
+      }
 
       res.redirect(`https://${shopDomain}/admin/apps`);
     }

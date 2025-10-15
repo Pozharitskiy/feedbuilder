@@ -1,96 +1,95 @@
-"use strict";
-// import { createClient } from "@libsql/client";
-// import { randomUUID } from "crypto";
-// // For Vercel, use Turso; for local, use local SQLite file
-// const dbUrl = process.env.TURSO_DATABASE_URL || "file:feedbuilder.db";
-// const authToken = process.env.TURSO_AUTH_TOKEN;
-// const db = createClient({
-//   url: dbUrl,
-//   authToken: authToken,
-// });
-// // Initialize database tables
-// await db.execute(`
-// CREATE TABLE IF NOT EXISTS shops (
-//   id INTEGER PRIMARY KEY AUTOINCREMENT,
-//   shop_domain TEXT UNIQUE NOT NULL,
-//   access_token TEXT NOT NULL,
-//   plan TEXT DEFAULT 'trial',
-//   feed_token TEXT UNIQUE NOT NULL,
-//   settings_json TEXT DEFAULT '{}',
-//   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-//   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-// );
-// `);
-// await db.execute(`
-// CREATE TABLE IF NOT EXISTS products_cache (
-//   id INTEGER PRIMARY KEY AUTOINCREMENT,
-//   shop_domain TEXT NOT NULL,
-//   payload_json TEXT NOT NULL,
-//   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-// );
-// `);
-// export async function upsertShop(shop_domain: string, access_token: string) {
-//   const existing = await db.execute({
-//     sql: "SELECT * FROM shops WHERE shop_domain=?",
-//     args: [shop_domain],
-//   });
-//   const now = new Date().toISOString();
-//   if (existing.rows.length > 0) {
-//     await db.execute({
-//       sql: "UPDATE shops SET access_token=?, updated_at=? WHERE shop_domain=?",
-//       args: [access_token, now, shop_domain],
-//     });
-//     return existing.rows[0].feed_token as string;
-//   } else {
-//     const feedToken = randomUUID();
-//     await db.execute({
-//       sql: "INSERT INTO shops (shop_domain, access_token, feed_token, updated_at) VALUES (?,?,?,?)",
-//       args: [shop_domain, access_token, feedToken, now],
-//     });
-//     return feedToken;
-//   }
-// }
-// export async function getShopByFeedToken(feedToken: string) {
-//   const result = await db.execute({
-//     sql: "SELECT * FROM shops WHERE feed_token=?",
-//     args: [feedToken],
-//   });
-//   return result.rows[0] || null;
-// }
-// export async function getShop(shop_domain: string) {
-//   const result = await db.execute({
-//     sql: "SELECT * FROM shops WHERE shop_domain=?",
-//     args: [shop_domain],
-//   });
-//   return result.rows[0] || null;
-// }
-// export async function saveProductsCache(shop_domain: string, payload: any) {
-//   const existing = await db.execute({
-//     sql: "SELECT id FROM products_cache WHERE shop_domain=?",
-//     args: [shop_domain],
-//   });
-//   const json = JSON.stringify(payload);
-//   const now = new Date().toISOString();
-//   if (existing.rows.length > 0) {
-//     await db.execute({
-//       sql: "UPDATE products_cache SET payload_json=?, updated_at=? WHERE shop_domain=?",
-//       args: [json, now, shop_domain],
-//     });
-//   } else {
-//     await db.execute({
-//       sql: "INSERT INTO products_cache (shop_domain, payload_json, updated_at) VALUES (?,?,?)",
-//       args: [shop_domain, json, now],
-//     });
-//   }
-// }
-// export async function loadProductsCache(shop_domain: string) {
-//   const result = await db.execute({
-//     sql: "SELECT payload_json FROM products_cache WHERE shop_domain=?",
-//     args: [shop_domain],
-//   });
-//   if (result.rows.length > 0) {
-//     return JSON.parse(result.rows[0].payload_json as string);
-//   }
-//   return null;
-// }
-// export default db;
+import Database from "better-sqlite3";
+import path from "path";
+const dbPath = path.join(process.cwd(), "feedbuilder.db");
+export const db = new Database(dbPath);
+// Включаем WAL mode для лучшей производительности
+db.pragma("journal_mode = WAL");
+// Инициализация таблиц
+db.exec(`
+  -- Таблица для хранения Shopify sessions
+  CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    shop TEXT NOT NULL UNIQUE,
+    accessToken TEXT NOT NULL,
+    scopes TEXT NOT NULL,
+    isOnline INTEGER DEFAULT 0,
+    expiresAt INTEGER,
+    onlineAccessInfo TEXT,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_sessions_shop ON sessions(shop);
+
+  -- Таблица для кэширования фидов
+  CREATE TABLE IF NOT EXISTS feed_cache (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop TEXT NOT NULL,
+    format TEXT NOT NULL,
+    content TEXT NOT NULL,
+    productsCount INTEGER DEFAULT 0,
+    createdAt INTEGER NOT NULL,
+    UNIQUE(shop, format)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_feed_cache_shop_format ON feed_cache(shop, format);
+`);
+console.log("✅ Database initialized:", dbPath);
+// Утилиты для работы с sessions
+export const sessionStorage = {
+    getSession: (shop) => {
+        const row = db
+            .prepare("SELECT * FROM sessions WHERE shop = ?")
+            .get(shop);
+        if (!row)
+            return null;
+        return {
+            ...row,
+            isOnline: row.isOnline === 1,
+        };
+    },
+    saveSession: (session) => {
+        const now = Date.now();
+        db.prepare(`
+      INSERT OR REPLACE INTO sessions
+      (id, shop, accessToken, scopes, isOnline, expiresAt, onlineAccessInfo, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(session.id || `offline_${session.shop}`, session.shop, session.accessToken, session.scopes || "", session.isOnline ? 1 : 0, session.expiresAt || null, session.onlineAccessInfo || null, session.createdAt || now, now);
+    },
+    deleteSession: (shop) => {
+        db.prepare("DELETE FROM sessions WHERE shop = ?").run(shop);
+    },
+    getAllShops: () => {
+        const rows = db
+            .prepare("SELECT DISTINCT shop FROM sessions")
+            .all();
+        return rows.map((row) => row.shop);
+    },
+};
+// Утилиты для работы с feed cache
+export const feedCacheStorage = {
+    getCache: (shop, format, maxAge = 6 * 60 * 60 * 1000) => {
+        const row = db
+            .prepare(`
+        SELECT * FROM feed_cache
+        WHERE shop = ? AND format = ? AND createdAt > ?
+      `)
+            .get(shop, format, Date.now() - maxAge);
+        return row || null;
+    },
+    saveCache: (shop, format, content, productsCount) => {
+        db.prepare(`
+      INSERT OR REPLACE INTO feed_cache (shop, format, content, productsCount, createdAt)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(shop, format, content, productsCount, Date.now());
+    },
+    invalidateCache: (shop) => {
+        db.prepare("DELETE FROM feed_cache WHERE shop = ?").run(shop);
+        console.log(`🗑️ Invalidated feed cache for ${shop}`);
+    },
+    getAllCachedFeeds: (shop) => {
+        return db
+            .prepare("SELECT * FROM feed_cache WHERE shop = ? ORDER BY createdAt DESC")
+            .all(shop);
+    },
+};

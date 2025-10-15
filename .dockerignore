@@ -1,6 +1,38 @@
-node_modules
-dist
+# Git
 .git
+.gitignore
+
+# Node
+node_modules
+npm-debug.log
+
+# TypeScript
+src/
+tsconfig.json
+*.ts
+!dist/**/*.js
+
+# Environment
 .env
-*.log
+.env.local
+.env.*
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Docs
+README.md
+tasks.md
+*.md
+
+# Other
+.prettierrc
+.eslintrc

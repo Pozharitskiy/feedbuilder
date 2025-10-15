@@ -1,47 +1,90 @@
-// async function refreshProducts(shop_domain: string) {
-//   const shop = (await getShop(shop_domain)) as any;
-//   if (!shop) return;
-//   const client = new shopify.api.clients.Graphql({
-//     session: { shop: shop_domain, accessToken: shop.access_token } as any,
-//   });
-//   let cursor: string | null = null;
-//   let allEdges: any[] = [];
-//   do {
-//     const resp: any = await client.query({
-//       data: { query: PRODUCTS_QUERY, variables: { cursor } },
-//     });
-//     const chunk = resp.body.data.products;
-//     allEdges = allEdges.concat(chunk.edges);
-//     cursor = chunk.pageInfo.hasNextPage ? chunk.pageInfo.endCursor : null;
-//   } while (cursor);
-//   await saveProductsCache(shop_domain, { edges: allEdges });
-// }
+import { feedCacheStorage } from "../db.js";
+import { feedUpdater } from "../services/feedUpdater.js";
 export const webhookRoutes = (app) => {
-    // // Генерация по расписанию можно вынести в cron (node-cron) — тут упрощённо
-    // app.post("/webhooks/products/update", async (req: Request, res: Response) => {
-    //   const shop = req.header("X-Shopify-Shop-Domain");
-    //   if (!shop) return res.sendStatus(200);
-    //   await refreshProducts(shop);
-    //   res.sendStatus(200);
-    // });
-    // // Вспомогательный роут обновления вручную
-    // app.post("/admin/regenerate", async (req: Request, res: Response) => {
-    //   const { shop } = req.query as any;
-    //   if (!shop) return res.status(400).send("missing shop");
-    //   await refreshProducts(shop);
-    //   res.send("ok");
-    // });
-    // // Получить URL фида для магазина
-    // app.get("/admin/feed-url", async (req: Request, res: Response) => {
-    //   const { shop } = req.query as any;
-    //   if (!shop) return res.status(400).send("missing shop");
-    //   const shopData = (await getShop(shop)) as any;
-    //   if (!shopData) return res.status(404).send("shop not found");
-    //   const feedUrl = `${process.env.APP_URL}/feed/${shopData.feed_token}.xml`;
-    //   res.json({ feed_url: feedUrl, feed_token: shopData.feed_token });
-    // });
+    /**
+     * Shopify Webhooks handler
+     * Автоматически инвалидирует кэш при изменении товаров
+     */
     app.post("/webhooks", (req, res) => {
-        console.log("Webhook:", req.body);
-        res.status(200).send("ok");
+        try {
+            const shop = req.header("X-Shopify-Shop-Domain");
+            const topic = req.header("X-Shopify-Topic");
+            console.log(`📨 Webhook received: ${topic} from ${shop}`);
+            if (!shop) {
+                console.log("⚠️ No shop domain in webhook");
+                return res.sendStatus(200);
+            }
+            // Инвалидируем кэш при изменении товаров
+            const productTopics = [
+                "products/create",
+                "products/update",
+                "products/delete",
+            ];
+            if (topic && productTopics.some((t) => topic.includes(t))) {
+                console.log(`🗑️ Invalidating cache for ${shop} (${topic})`);
+                feedCacheStorage.invalidateCache(shop);
+            }
+            res.sendStatus(200);
+        }
+        catch (error) {
+            console.error("❌ Webhook error:", error);
+            res.sendStatus(500);
+        }
+    });
+    /**
+     * Ручное обновление фидов для магазина
+     */
+    app.post("/api/regenerate/:shop", async (req, res) => {
+        try {
+            const { shop } = req.params;
+            console.log(`🔄 Manual feed regeneration requested for ${shop}`);
+            // Инвалидируем старый кэш
+            feedCacheStorage.invalidateCache(shop);
+            // Запускаем фоновое обновление
+            feedUpdater.updateAllFeeds().catch((err) => {
+                console.error("Background update error:", err);
+            });
+            res.json({
+                success: true,
+                message: `Feed regeneration started for ${shop}`,
+            });
+        }
+        catch (error) {
+            console.error("❌ Regenerate error:", error);
+            res.status(500).json({
+                error: "Failed to regenerate feeds",
+                message: error.message,
+            });
+        }
+    });
+    /**
+     * Получить информацию о фидах магазина
+     */
+    app.get("/api/feed-info/:shop", (req, res) => {
+        try {
+            const { shop } = req.params;
+            const feeds = feedCacheStorage.getAllCachedFeeds(shop);
+            const feedUrls = ["google-shopping", "yandex-yml", "facebook"].map((format) => ({
+                format,
+                url: `${process.env.APP_URL}/feed/${shop}/${format}`,
+                cached: feeds.some((f) => f.format === format),
+                age: feeds.find((f) => f.format === format)
+                    ? Math.round((Date.now() - feeds.find((f) => f.format === format).createdAt) /
+                        1000 /
+                        60)
+                    : null,
+            }));
+            res.json({
+                shop,
+                feeds: feedUrls,
+                totalCached: feeds.length,
+            });
+        }
+        catch (error) {
+            res.status(500).json({
+                error: "Failed to get feed info",
+                message: error.message,
+            });
+        }
     });
 };
