@@ -1,0 +1,8 @@
+node_modules
+.env
+src
+*.log
+.git
+.gitignore
+fly.toml
+Dockerfile

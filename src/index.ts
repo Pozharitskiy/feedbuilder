@@ -12,17 +12,14 @@ app.use(shopify.cspHeaders());
 app.use("/install", ensureInstalled());
 
 authRoutes(app);
-webhookRoutes(app);
 feedRoutes(app);
+webhookRoutes(app);
 
 app.get("/", (req, res) => {
-  res.send("✅ FeedBuilder backend is running");
+  res.send("✅ FeedBuilderly backend is running");
 });
 
-// Экспорт для Vercel serverless
-export default app;
-
-const port = Number(process.env.PORT) || 10000;
+const port = Number(process.env.PORT) || 8080;
 app.listen(port, "0.0.0.0", () => {
-  console.log(`✅ FeedBuilder running on port ${port}`);
+  console.log(`✅ FeedBuilderly running on port ${port}`);
 });
