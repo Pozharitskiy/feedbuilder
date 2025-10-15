@@ -30,8 +30,9 @@ export const shopify = shopifyApp({
 export function ensureInstalled() {
     console.log("ensureInstalled");
     const router = express.Router();
-    // /install/
-    router.get("/", (req, res) => {
+    const authMiddleware = shopify.auth.begin();
+    // Middleware для проверки shop параметра
+    const validateShop = (req, res, next) => {
         console.log("📦 Install request:", req.query);
         const { shop } = req.query;
         if (!shop) {
@@ -39,18 +40,11 @@ export function ensureInstalled() {
             return res.status(400).send("Missing shop param");
         }
         console.log(`🚀 Starting OAuth for shop: ${shop}`);
-        return shopify.auth.begin({ req, res });
-    });
+        next();
+    };
+    // /install/
+    router.get("/", validateShop, authMiddleware);
     // /install (без слэша)
-    router.get("", (req, res) => {
-        console.log("📦 Install request (no slash):", req.query);
-        const { shop } = req.query;
-        if (!shop) {
-            console.log("❌ Missing shop parameter");
-            return res.status(400).send("Missing shop param");
-        }
-        console.log(`🚀 Starting OAuth for shop: ${shop}`);
-        return shopify.auth.begin({ req, res });
-    });
+    router.get("", validateShop, authMiddleware);
     return router;
 }
