@@ -3,13 +3,6 @@ import { shopifyApp } from "@shopify/shopify-app-express";
 import express from "express";
 const appUrl = process.env.APP_URL;
 const hostName = new URL(appUrl).hostname;
-console.log("🔧 Shopify config:", {
-    appUrl,
-    hostName,
-    apiKey: process.env.SHOPIFY_API_KEY,
-    hasSecret: !!process.env.SHOPIFY_API_SECRET,
-    scopes: process.env.SCOPES,
-});
 export const shopify = shopifyApp({
     api: {
         apiKey: process.env.SHOPIFY_API_KEY,
@@ -34,6 +27,13 @@ export function ensureInstalled() {
     // Middleware для проверки shop параметра
     const validateShop = (req, res, next) => {
         console.log("📦 Install request:", req.query);
+        console.log("🔧 Shopify config:", {
+            appUrl,
+            hostName,
+            apiKey: process.env.SHOPIFY_API_KEY,
+            hasSecret: !!process.env.SHOPIFY_API_SECRET,
+            scopes: process.env.SCOPES,
+        });
         const { shop } = req.query;
         if (!shop) {
             console.log("❌ Missing shop parameter");
