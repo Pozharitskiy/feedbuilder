@@ -1,7 +1,18 @@
 import { ShopifyClient } from "../services/shopifyClient.js";
 import { FeedBuilder } from "../services/feedBuilder.js";
 import { sessionStorage, feedCacheStorage } from "../db.js";
+import { IMPLEMENTED_FORMATS, isImplemented, FEED_CATEGORIES } from "../types/feed.js";
 export const feedRoutes = (app) => {
+    // Получить список всех поддерживаемых форматов
+    app.get("/api/formats", (req, res) => {
+        res.json({
+            totalFormats: Object.values(FEED_CATEGORIES).flat().length,
+            implementedFormats: [...IMPLEMENTED_FORMATS],
+            implementedCount: IMPLEMENTED_FORMATS.length,
+            categories: FEED_CATEGORIES,
+            message: "Use GET /feed/:shop/:format to generate a feed",
+        });
+    });
     // Получить товары магазина (для тестирования и preview)
     app.get("/api/products/:shop", async (req, res) => {
         try {
@@ -50,15 +61,11 @@ export const feedRoutes = (app) => {
             const forceRefresh = req.query.refresh === "true";
             console.log(`🔨 Feed request: ${format} for ${shop}${forceRefresh ? " (force refresh)" : ""}`);
             // Валидация формата
-            const validFormats = [
-                "google-shopping",
-                "yandex-yml",
-                "facebook",
-            ];
-            if (!validFormats.includes(format)) {
+            if (!isImplemented(format)) {
                 return res.status(400).json({
-                    error: "Invalid format",
-                    message: `Supported formats: ${validFormats.join(", ")}`,
+                    error: "Invalid or not yet implemented format",
+                    message: `Currently supported formats: ${IMPLEMENTED_FORMATS.join(", ")}`,
+                    requestedFormat: format,
                 });
             }
             // Проверка что магазин установил приложение
