@@ -3,7 +3,13 @@ import { shopify } from "../shopify.js";
 
 export const authRoutes = (app: any) => {
   app.get("/auth", (req: Request, res: Response) => {
-    console.log("auth", req.query);
+    console.log(
+      "auth",
+      req.query,
+      process.env.SHOPIFY_API_KEY,
+      process.env.SHOPIFY_API_SECRET?.length,
+      process.env.API_URL
+    );
     return (shopify.auth.begin as any)({ req, res });
   });
 
