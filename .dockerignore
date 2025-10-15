@@ -6,12 +6,6 @@
 node_modules
 npm-debug.log
 
-# TypeScript
-src/
-tsconfig.json
-*.ts
-!dist/**/*.js
-
 # Environment
 .env
 .env.local
@@ -29,10 +23,10 @@ tsconfig.json
 Thumbs.db
 
 # Docs
-README.md
-tasks.md
 *.md
+!README.md
 
 # Other
 .prettierrc
 .eslintrc
+fly.toml

@@ -69,7 +69,8 @@ export const webhookRoutes = (app) => {
                 url: `${process.env.APP_URL}/feed/${shop}/${format}`,
                 cached: feeds.some((f) => f.format === format),
                 age: feeds.find((f) => f.format === format)
-                    ? Math.round((Date.now() - feeds.find((f) => f.format === format).createdAt) /
+                    ? Math.round((Date.now() -
+                        feeds.find((f) => f.format === format).createdAt) /
                         1000 /
                         60)
                     : null,
