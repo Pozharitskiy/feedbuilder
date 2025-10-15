@@ -1,7 +1,7 @@
 import { shopify } from "../shopify.js";
 export const authRoutes = (app) => {
     app.get("/auth", (req, res) => {
-        console.log("auth", req.query);
+        console.log("auth", req.query, process.env.SHOPIFY_API_KEY, process.env.SHOPIFY_API_SECRET?.length, process.env.API_URL);
         return shopify.auth.begin({ req, res });
     });
     app.get("/auth/callback", async (req, res) => {
