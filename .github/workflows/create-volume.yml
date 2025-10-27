@@ -1,0 +1,19 @@
+name: Create Fly Volume
+
+on:
+  workflow_dispatch
+
+jobs:
+  create-volume:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: superfly/flyctl-actions/setup@master
+      
+      - name: Create Volume
+        run: |
+          flyctl volumes create feedbuilder_data \
+            --size 3 \
+            --region ams \
+            --app feedbuilderly
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
