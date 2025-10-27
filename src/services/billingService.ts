@@ -1,7 +1,9 @@
 // Billing service for Shopify subscriptions
 import { sessionStorage } from "../db.js";
+import { shopify } from "../shopify.js";
 import type { PlanName, Subscription } from "../types/billing.js";
 import { PLANS } from "../types/billing.js";
+import { Session } from "@shopify/shopify-api";
 import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -72,7 +74,7 @@ class BillingService {
     };
   }
 
-  // Create Shopify recurring charge
+  // Create Shopify recurring charge (REAL IMPLEMENTATION)
   async createCharge(
     shop: string,
     planName: PlanName
@@ -82,22 +84,113 @@ class BillingService {
       throw new Error("Cannot create charge for free plan");
     }
 
-    // Get session
-    const session = sessionStorage.getSession(shop);
-    if (!session) {
+    // Get session from database
+    const dbSession = sessionStorage.getSession(shop);
+    if (!dbSession) {
       throw new Error("Shop session not found");
     }
 
-    // TODO: Implement Shopify Billing API integration
-    // For now, return a mock confirmation URL
-    const chargeId = `charge_${Date.now()}`;
-    const confirmationUrl = `https://${shop}/admin/charges/${chargeId}/confirm`;
+    try {
+      // Create Shopify API Session object
+      const session = new Session({
+        id: dbSession.id,
+        shop: dbSession.shop,
+        state: "active",
+        isOnline: dbSession.isOnline,
+        accessToken: dbSession.accessToken,
+        scope: dbSession.scopes,
+      });
 
-    console.log(
-      `⚠️ Billing API not fully implemented yet. Mock charge created for ${planName} plan`
-    );
+      // Create GraphQL client using shopify-app-express
+      const client = new shopify.api.clients.Graphql({ session });
 
-    return { confirmationUrl, chargeId };
+      const isTestMode = process.env.NODE_ENV !== "production";
+
+      // GraphQL mutation to create app subscription
+      const response = await client.query({
+        data: {
+          query: `
+            mutation AppSubscriptionCreate(
+              $name: String!
+              $returnUrl: URL!
+              $trialDays: Int
+              $test: Boolean
+              $lineItems: [AppSubscriptionLineItemInput!]!
+            ) {
+              appSubscriptionCreate(
+                name: $name
+                returnUrl: $returnUrl
+                trialDays: $trialDays
+                test: $test
+                lineItems: $lineItems
+              ) {
+                appSubscription {
+                  id
+                  name
+                  status
+                  trialDays
+                  currentPeriodEnd
+                  test
+                }
+                confirmationUrl
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }
+          `,
+          variables: {
+            name: `FeedBuilderly ${plan.displayName} Plan`,
+            returnUrl: `https://${process.env.HOST}/billing/callback?shop=${shop}&plan=${planName}`,
+            trialDays: 14, // 14-day free trial
+            test: isTestMode, // Test mode for development
+            lineItems: [
+              {
+                plan: {
+                  appRecurringPricingDetails: {
+                    price: {
+                      amount: plan.price,
+                      currencyCode: "USD",
+                    },
+                    interval: "EVERY_30_DAYS",
+                  },
+                },
+              },
+            ],
+          },
+        },
+      });
+
+      const result = response.body as any;
+
+      // Check for GraphQL errors
+      if (result.errors && result.errors.length > 0) {
+        throw new Error(`GraphQL error: ${result.errors[0].message}`);
+      }
+
+      // Check for user errors
+      const userErrors = result.data?.appSubscriptionCreate?.userErrors || [];
+      if (userErrors.length > 0) {
+        throw new Error(
+          `Shopify billing error: ${userErrors[0].message} (${userErrors[0].field})`
+        );
+      }
+
+      const confirmationUrl = result.data.appSubscriptionCreate.confirmationUrl;
+      const chargeId = result.data.appSubscriptionCreate.appSubscription.id;
+
+      console.log(
+        `✅ Created ${
+          isTestMode ? "TEST" : "LIVE"
+        } subscription for ${shop}: ${chargeId}`
+      );
+
+      return { confirmationUrl, chargeId };
+    } catch (error: any) {
+      console.error("❌ Error creating Shopify subscription:", error);
+      throw new Error(`Failed to create subscription: ${error.message}`);
+    }
   }
 
   // Activate subscription after payment

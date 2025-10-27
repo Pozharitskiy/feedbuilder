@@ -27,17 +27,17 @@ router.get("/pricing", (req, res) => {
   <title>FeedBuilderly - Choose Your Plan</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-    
-    * { 
-      margin: 0; 
-      padding: 0; 
-      box-sizing: border-box; 
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
-    
+
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: #0a0e27;
-      background-image: 
+      background-image:
         radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
         radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%),
         radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.15) 0px, transparent 50%);
@@ -46,12 +46,12 @@ router.get("/pricing", (req, res) => {
       position: relative;
       overflow-x: hidden;
     }
-    
-    .container { 
-      max-width: 1280px; 
-      margin: 0 auto; 
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
     }
-    
+
     h1 {
       text-align: center;
       background: linear-gradient(135deg, #fff 0%, #e0e7ff 100%);
@@ -64,7 +64,7 @@ router.get("/pricing", (req, res) => {
       letter-spacing: -0.02em;
       line-height: 1.1;
     }
-    
+
     .subtitle {
       text-align: center;
       color: rgba(255,255,255,0.7);
@@ -72,7 +72,7 @@ router.get("/pricing", (req, res) => {
       margin-bottom: 24px;
       font-weight: 400;
     }
-    
+
     .current-plan {
       text-align: center;
       background: rgba(255,255,255,0.08);
@@ -87,7 +87,7 @@ router.get("/pricing", (req, res) => {
       font-size: 14px;
       letter-spacing: 0.01em;
     }
-    
+
     .plans {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -95,7 +95,7 @@ router.get("/pricing", (req, res) => {
       margin-bottom: 80px;
       perspective: 1000px;
     }
-    
+
     .plan {
       background: rgba(255,255,255,0.04);
       backdrop-filter: blur(24px);
@@ -105,20 +105,20 @@ router.get("/pricing", (req, res) => {
       transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
     }
-    
+
     .plan:hover {
       transform: translateY(-8px) scale(1.02);
       background: rgba(255,255,255,0.06);
       border-color: rgba(255,255,255,0.15);
       box-shadow: 0 20px 60px rgba(99, 102, 241, 0.2);
     }
-    
+
     .plan.recommended {
       background: rgba(99, 102, 241, 0.08);
       border: 2px solid rgba(99, 102, 241, 0.3);
       transform: scale(1.05);
     }
-    
+
     .plan.recommended::after {
       content: 'POPULAR';
       position: absolute;
@@ -135,12 +135,12 @@ router.get("/pricing", (req, res) => {
       pointer-events: none;
       z-index: 1;
     }
-    
+
     .plan.current {
       border: 2px solid rgba(34, 197, 94, 0.4);
       background: rgba(34, 197, 94, 0.05);
     }
-    
+
     .plan-name {
       font-size: 22px;
       font-weight: 700;
@@ -148,7 +148,7 @@ router.get("/pricing", (req, res) => {
       color: rgba(255,255,255,0.95);
       letter-spacing: -0.01em;
     }
-    
+
     .plan-price {
       font-size: 52px;
       font-weight: 800;
@@ -160,13 +160,13 @@ router.get("/pricing", (req, res) => {
       line-height: 1;
       letter-spacing: -0.03em;
     }
-    
+
     .plan-price span {
       font-size: 18px;
       font-weight: 500;
       color: rgba(255,255,255,0.5);
     }
-    
+
     .plan-description {
       color: rgba(255,255,255,0.6);
       margin-bottom: 32px;
@@ -174,12 +174,12 @@ router.get("/pricing", (req, res) => {
       padding-bottom: 24px;
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
-    
+
     .plan-features {
       list-style: none;
       margin-bottom: 32px;
     }
-    
+
     .plan-features li {
       padding: 10px 0;
       color: rgba(255,255,255,0.75);
@@ -189,7 +189,7 @@ router.get("/pricing", (req, res) => {
       gap: 12px;
       font-weight: 400;
     }
-    
+
     .plan-features li::before {
       content: '✓';
       color: #22c55e;
@@ -205,7 +205,7 @@ router.get("/pricing", (req, res) => {
       justify-content: center;
       font-size: 12px;
     }
-    
+
     .plan-button {
       width: 100%;
       padding: 16px 24px;
@@ -223,37 +223,37 @@ router.get("/pricing", (req, res) => {
       position: relative;
       z-index: 10;
     }
-    
+
     .plan-button.primary {
       background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
       color: white;
       box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
       border: 1px solid rgba(255,255,255,0.1);
     }
-    
+
     .plan-button.primary:hover {
       transform: translateY(-2px);
       box-shadow: 0 8px 30px rgba(99, 102, 241, 0.6);
     }
-    
+
     .plan-button.secondary {
       background: rgba(255,255,255,0.08);
       color: rgba(255,255,255,0.9);
       border: 1px solid rgba(255,255,255,0.1);
     }
-    
+
     .plan-button.secondary:hover {
       background: rgba(255,255,255,0.12);
       transform: translateY(-2px);
     }
-    
+
     .plan-button.current {
       background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
       color: white;
       cursor: default;
       box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
     }
-    
+
     .features-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -265,17 +265,17 @@ router.get("/pricing", (req, res) => {
       border-radius: 32px;
       border: 1px solid rgba(255,255,255,0.06);
     }
-    
+
     .feature {
       text-align: center;
     }
-    
+
     .feature-icon {
       font-size: 52px;
       margin-bottom: 20px;
       filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.3));
     }
-    
+
     .feature-title {
       font-size: 20px;
       font-weight: 700;
@@ -283,24 +283,24 @@ router.get("/pricing", (req, res) => {
       color: rgba(255,255,255,0.95);
       letter-spacing: -0.01em;
     }
-    
+
     .feature-desc {
       font-size: 14px;
       color: rgba(255,255,255,0.6);
       line-height: 1.6;
       font-weight: 400;
     }
-    
+
     @media (max-width: 768px) {
       .plans {
         grid-template-columns: 1fr;
         gap: 20px;
       }
-      
+
       .plan.recommended {
         transform: scale(1);
       }
-      
+
       .features-grid {
         padding: 40px 24px;
         margin-top: 60px;
@@ -403,7 +403,7 @@ router.get("/select", async (req, res) => {
     // Check if shop has installed the app
     const { sessionStorage } = await import("../db.js");
     const session = sessionStorage.getSession(shop);
-    
+
     if (!session) {
       return res.send(`
 <!DOCTYPE html>
@@ -473,13 +473,13 @@ router.get("/select", async (req, res) => {
       return res.redirect(`/pricing?shop=${shop}`);
     }
 
-    // Create Shopify charge
+    // Create real Shopify subscription charge
     const { confirmationUrl } = await billingService.createCharge(
       shop,
       planName
     );
 
-    // Redirect to Shopify payment
+    // Redirect to Shopify payment confirmation page
     res.redirect(confirmationUrl);
   } catch (error: any) {
     console.error("❌ Error creating charge:", error);
