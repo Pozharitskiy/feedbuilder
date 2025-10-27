@@ -86,16 +86,14 @@ class BillingService {
     }
 
     try {
-      // Load session directly from Shopify's session storage
+      // Load OFFLINE session (shop token) - required for billing
+      // Do NOT use online session (user token) - billing won't work!
       let session = await sessionStorage.loadSession(`offline_${shop}`);
 
-      // If offline session not found, try online session
       if (!session) {
-        session = await sessionStorage.loadSession(`online_${shop}`);
-      }
-
-      if (!session) {
-        throw new Error("Shop session not found");
+        throw new Error(
+          "Shop session not found. Only shop owner can create subscriptions."
+        );
       }
 
       // Create GraphQL client using shopify-app-express
