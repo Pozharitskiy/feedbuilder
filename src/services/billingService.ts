@@ -90,10 +90,18 @@ class BillingService {
       let session = await sessionStorage.loadSession(`offline_${shop}`);
 
       if (!session) {
+        console.error("❌ No offline session found for:", `offline_${shop}`);
         throw new Error(
           "Shop session not found. Only shop owner can create subscriptions."
         );
       }
+
+      console.log("📦 Session loaded:", {
+        shop: session.shop,
+        hasAccessToken: !!session.accessToken,
+        tokenLength: session.accessToken?.length,
+        tokenPreview: session.accessToken?.substring(0, 10) + "...",
+      });
 
       if (!session.accessToken) {
         console.error("❌ Session found but accessToken is empty:", session);
