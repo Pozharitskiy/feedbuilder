@@ -26,160 +26,303 @@ router.get("/pricing", (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FeedBuilderly - Choose Your Plan</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      padding: 40px 20px;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    * { 
+      margin: 0; 
+      padding: 0; 
+      box-sizing: border-box; 
     }
-    .container { max-width: 1200px; margin: 0 auto; }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0e27;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.15) 0px, transparent 50%);
+      min-height: 100vh;
+      padding: 60px 24px;
+      position: relative;
+      overflow-x: hidden;
+    }
+    
+    .container { 
+      max-width: 1280px; 
+      margin: 0 auto; 
+    }
+    
     h1 {
       text-align: center;
-      color: white;
-      font-size: 42px;
+      background: linear-gradient(135deg, #fff 0%, #e0e7ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-size: clamp(36px, 5vw, 56px);
+      font-weight: 800;
       margin-bottom: 16px;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
     }
+    
     .subtitle {
       text-align: center;
-      color: rgba(255,255,255,0.9);
+      color: rgba(255,255,255,0.7);
       font-size: 18px;
-      margin-bottom: 50px;
+      margin-bottom: 24px;
+      font-weight: 400;
     }
+    
     .current-plan {
       text-align: center;
-      background: rgba(255,255,255,0.2);
-      padding: 12px 24px;
-      border-radius: 8px;
-      color: white;
-      margin-bottom: 40px;
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(12px);
+      padding: 14px 28px;
+      border-radius: 100px;
+      color: rgba(255,255,255,0.95);
+      margin: 0 auto 60px;
       display: inline-block;
-      width: 100%;
+      border: 1px solid rgba(255,255,255,0.1);
+      font-weight: 500;
+      font-size: 14px;
+      letter-spacing: 0.01em;
     }
+    
     .plans {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 24px;
-      margin-bottom: 40px;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 28px;
+      margin-bottom: 80px;
+      perspective: 1000px;
     }
+    
     .plan {
-      background: white;
-      border-radius: 16px;
-      padding: 32px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-      transition: transform 0.3s, box-shadow 0.3s;
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+      padding: 40px 32px;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
-      overflow: hidden;
+      overflow: visible;
     }
-    .plan:hover {
-      transform: translateY(-8px);
-      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    }
-    .plan.recommended {
-      border: 3px solid #667eea;
-    }
-    .plan.recommended::before {
-      content: 'MOST POPULAR';
+    
+    .plan::before {
+      content: '';
       position: absolute;
-      top: 16px;
-      right: -32px;
-      background: #667eea;
+      inset: -1px;
+      border-radius: 24px;
+      padding: 1px;
+      background: linear-gradient(135deg, 
+        rgba(255,255,255,0.1) 0%, 
+        rgba(255,255,255,0.05) 100%);
+      -webkit-mask: 
+        linear-gradient(#fff 0 0) content-box, 
+        linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    
+    .plan:hover {
+      transform: translateY(-8px) scale(1.02);
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.15);
+    }
+    
+    .plan:hover::before {
+      opacity: 1;
+    }
+    
+    .plan.recommended {
+      background: rgba(99, 102, 241, 0.08);
+      border: 2px solid rgba(99, 102, 241, 0.3);
+      transform: scale(1.05);
+    }
+    
+    .plan.recommended::after {
+      content: 'POPULAR';
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
       color: white;
-      padding: 4px 40px;
-      font-size: 12px;
-      font-weight: bold;
-      transform: rotate(45deg);
+      padding: 6px 14px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
     }
+    
     .plan.current {
-      border: 3px solid #10b981;
+      border: 2px solid rgba(34, 197, 94, 0.4);
+      background: rgba(34, 197, 94, 0.05);
     }
+    
     .plan-name {
-      font-size: 24px;
-      font-weight: bold;
-      margin-bottom: 8px;
-      color: #1f2937;
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: rgba(255,255,255,0.95);
+      letter-spacing: -0.01em;
     }
+    
     .plan-price {
-      font-size: 42px;
-      font-weight: bold;
-      color: #667eea;
-      margin-bottom: 8px;
+      font-size: 52px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 0%, #c7d2fe 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 4px;
+      line-height: 1;
+      letter-spacing: -0.03em;
     }
+    
     .plan-price span {
       font-size: 18px;
-      color: #6b7280;
+      font-weight: 500;
+      color: rgba(255,255,255,0.5);
     }
+    
     .plan-description {
-      color: #6b7280;
-      margin-bottom: 24px;
-      font-size: 14px;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 32px;
+      font-size: 15px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
     }
+    
     .plan-features {
       list-style: none;
-      margin-bottom: 24px;
+      margin-bottom: 32px;
     }
+    
     .plan-features li {
-      padding: 8px 0;
-      color: #374151;
+      padding: 10px 0;
+      color: rgba(255,255,255,0.75);
       font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 400;
     }
+    
+    .plan-features li::before {
+      content: '✓';
+      color: #22c55e;
+      font-weight: 700;
+      font-size: 16px;
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      background: rgba(34, 197, 94, 0.15);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+    
     .plan-button {
       width: 100%;
-      padding: 14px;
+      padding: 16px 24px;
       border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: bold;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       text-decoration: none;
       display: block;
       text-align: center;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: -0.01em;
     }
+    
     .plan-button.primary {
-      background: #667eea;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
       color: white;
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+      border: 1px solid rgba(255,255,255,0.1);
     }
+    
     .plan-button.primary:hover {
-      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.6);
     }
+    
     .plan-button.secondary {
-      background: #e5e7eb;
-      color: #374151;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.9);
+      border: 1px solid rgba(255,255,255,0.1);
     }
+    
     .plan-button.secondary:hover {
-      background: #d1d5db;
+      background: rgba(255,255,255,0.12);
+      transform: translateY(-2px);
     }
+    
     .plan-button.current {
-      background: #10b981;
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
       color: white;
       cursor: default;
+      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
     }
+    
     .features-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 24px;
-      margin-top: 60px;
-      padding: 40px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 32px;
+      margin-top: 100px;
+      padding: 60px 48px;
+      background: rgba(255,255,255,0.02);
+      backdrop-filter: blur(12px);
+      border-radius: 32px;
+      border: 1px solid rgba(255,255,255,0.06);
     }
+    
     .feature {
-      color: white;
       text-align: center;
     }
+    
     .feature-icon {
-      font-size: 48px;
-      margin-bottom: 16px;
+      font-size: 52px;
+      margin-bottom: 20px;
+      filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.3));
     }
+    
     .feature-title {
       font-size: 20px;
-      font-weight: bold;
-      margin-bottom: 8px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: rgba(255,255,255,0.95);
+      letter-spacing: -0.01em;
     }
+    
     .feature-desc {
       font-size: 14px;
-      opacity: 0.9;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.6;
+      font-weight: 400;
+    }
+    
+    @media (max-width: 768px) {
+      .plans {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      
+      .plan.recommended {
+        transform: scale(1);
+      }
+      
+      .features-grid {
+        padding: 40px 24px;
+        margin-top: 60px;
+      }
     }
   </style>
 </head>
@@ -222,8 +365,8 @@ router.get("/pricing", (req, res) => {
               isCurrent
                 ? '<button class="plan-button current">Current Plan</button>'
                 : plan.price === 0
-                ? '<a href="/billing/select?shop=${shop}&plan=${key}" class="plan-button secondary">Downgrade</a>'
-                : '<a href="/billing/select?shop=${shop}&plan=${key}" class="plan-button primary">Choose Plan</a>'
+                ? `<a href="/billing/select?shop=${shop}&plan=${key}" class="plan-button secondary">Downgrade</a>`
+                : `<a href="/billing/select?shop=${shop}&plan=${key}" class="plan-button primary">Choose Plan</a>`
             }
           </div>
         `;

@@ -33,10 +33,10 @@ export const PLANS: Record<PlanName, Plan> = {
     formats: "limited",
     limitedFormats: ["google-shopping", "facebook", "yandex-yml"],
     features: [
-      "✅ 3 basic formats (Google, Facebook, Yandex)",
-      "✅ Up to 100 products",
-      "✅ Daily updates",
-      "✅ Email support",
+      "3 basic formats (Google, Facebook, Yandex)",
+      "Up to 100 products",
+      "Daily updates",
+      "Email support",
     ],
   },
   basic: {
@@ -47,11 +47,11 @@ export const PLANS: Record<PlanName, Plan> = {
     updateInterval: 360, // 6 hours
     formats: "all",
     features: [
-      "✅ All 22+ formats",
-      "✅ Up to 1,000 products",
-      "✅ Updates every 6 hours",
-      "✅ Priority email support",
-      "✅ Webhook invalidation",
+      "All 22+ formats",
+      "Up to 1,000 products",
+      "Updates every 6 hours",
+      "Priority email support",
+      "Webhook invalidation",
     ],
   },
   pro: {
@@ -62,13 +62,13 @@ export const PLANS: Record<PlanName, Plan> = {
     updateInterval: 60, // 1 hour
     formats: "all",
     features: [
-      "✅ All 22+ formats",
-      "✅ Unlimited products",
-      "✅ Updates every hour",
-      "✅ Priority support (24h response)",
-      "✅ Webhook invalidation",
-      "✅ Custom format requests",
-      "✅ Feed customization",
+      "All 22+ formats",
+      "Unlimited products",
+      "Updates every hour",
+      "Priority support (24h response)",
+      "Webhook invalidation",
+      "Custom format requests",
+      "Feed customization",
     ],
   },
   enterprise: {
@@ -79,14 +79,14 @@ export const PLANS: Record<PlanName, Plan> = {
     updateInterval: 15, // 15 minutes
     formats: "all",
     features: [
-      "✅ All formats + custom formats",
-      "✅ Unlimited products",
-      "✅ Updates every 15 minutes",
-      "✅ Dedicated support manager",
-      "✅ White-label feeds",
-      "✅ API access",
-      "✅ Multi-store (up to 5 stores)",
-      "✅ SLA guarantee",
+      "All formats + custom formats",
+      "Unlimited products",
+      "Updates every 15 minutes",
+      "Dedicated support manager",
+      "White-label feeds",
+      "API access",
+      "Multi-store (up to 5 stores)",
+      "SLA guarantee",
     ],
   },
 };
