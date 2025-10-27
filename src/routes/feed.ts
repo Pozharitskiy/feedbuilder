@@ -114,7 +114,8 @@ export const feedRoutes = (app: any) => {
           );
 
           // Устанавливаем правильный content-type
-          if (format === "csv") {
+          const csvFormats = ["ceneo", "idealo", "bol", "prisjakt", "csv"];
+          if (csvFormats.includes(format)) {
             res.type("text/csv");
           } else {
             res.type("application/xml");
@@ -159,7 +160,8 @@ export const feedRoutes = (app: any) => {
       );
 
       // Устанавливаем правильный content-type
-      if (format === "csv") {
+      const csvFormats = ["ceneo", "idealo", "bol", "prisjakt", "csv"];
+      if (csvFormats.includes(format)) {
         res.type("text/csv");
       } else {
         res.type("application/xml");

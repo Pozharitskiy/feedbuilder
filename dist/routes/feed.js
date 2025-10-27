@@ -1,7 +1,7 @@
 import { ShopifyClient } from "../services/shopifyClient.js";
 import { FeedBuilder } from "../services/feedBuilder.js";
 import { sessionStorage, feedCacheStorage } from "../db.js";
-import { IMPLEMENTED_FORMATS, isImplemented, FEED_CATEGORIES } from "../types/feed.js";
+import { IMPLEMENTED_FORMATS, isImplemented, FEED_CATEGORIES, } from "../types/feed.js";
 export const feedRoutes = (app) => {
     // Получить список всех поддерживаемых форматов
     app.get("/api/formats", (req, res) => {
@@ -82,7 +82,8 @@ export const feedRoutes = (app) => {
                 if (cached) {
                     console.log(`✅ Serving cached ${format} feed for ${shop} (age: ${Math.round((Date.now() - cached.createdAt) / 1000 / 60)} min)`);
                     // Устанавливаем правильный content-type
-                    if (format === "csv") {
+                    const csvFormats = ["ceneo", "idealo", "bol", "prisjakt", "csv"];
+                    if (csvFormats.includes(format)) {
                         res.type("text/csv");
                     }
                     else {
@@ -113,7 +114,8 @@ export const feedRoutes = (app) => {
             feedCacheStorage.saveCache(shop, format, result.content, result.variantsCount);
             console.log(`✅ Feed generated and cached: ${result.productsCount} products, ${result.variantsCount} variants`);
             // Устанавливаем правильный content-type
-            if (format === "csv") {
+            const csvFormats = ["ceneo", "idealo", "bol", "prisjakt", "csv"];
+            if (csvFormats.includes(format)) {
                 res.type("text/csv");
             }
             else {

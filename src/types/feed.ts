@@ -48,10 +48,13 @@ export type FeedFormat =
 
   // 💸 Сравнители цен / каталоги (CPC networks)
   | "prisjakt" // Скандинавия
+  | "pricerunner" // UK + Скандинавия
   | "kelkoo" // EU comparison shopping
   | "shopmania" // Global CSE
   | "shopalike" // EU comparison feed
   | "twenga" // Франция / Германия
+  | "trovaprezzi" // Италия
+  | "shopzilla" // Global comparison
   | "pricegrabber" // США
   | "shoppingcom" // (eBay Commerce Network)
   | "idealo-pl" // Польша отдельный
@@ -114,6 +117,25 @@ export const IMPLEMENTED_FORMATS: readonly FeedFormat[] = [
   "google-shopping",
   "yandex-yml",
   "facebook",
+  "allegro", // 🇵🇱 Poland marketplace
+  "ceneo", // 🇵🇱 Poland comparison
+  "idealo", // 🇩🇪 Germany comparison
+  "rtb-house", // 🇪🇺 Retargeting
+  "empik", // 🇵🇱 Poland marketplace
+  "kaufland", // 🇩🇪 Germany marketplace
+  "criteo", // 🌍 Global retargeting
+  "microsoft-ads", // 🌍 Bing Shopping
+  "heureka", // 🇨🇿 Czech/Slovakia
+  "bol", // 🇳🇱 Netherlands/Belgium
+  "prisjakt", // 🇸🇪 Scandinavia
+  "kelkoo", // 🇫🇷 France + EU
+  "glami", // 🇪🇺 Fashion EU
+  "zalando", // 🇪🇺 Fashion EU
+  "amazon", // 🌍 Global marketplace
+  "trovaprezzi", // 🇮🇹 Italy
+  "pricerunner", // 🇬🇧 UK + Scandinavia
+  "twenga", // 🇪🇸 Spain + EU
+  "shopzilla", // 🌍 Global comparison
 ] as const;
 
 /**
