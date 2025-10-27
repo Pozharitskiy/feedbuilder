@@ -13,6 +13,13 @@ export const authRoutes = (app) => {
         }
         const shopDomain = session.shop;
         const accessToken = session.accessToken;
+        // Логирование для отладки
+        console.log("📦 New session from OAuth:", {
+            shop: shopDomain,
+            tokenLength: accessToken?.length,
+            tokenPreview: accessToken?.substring(0, 10) + "...",
+            scopes: session.scope,
+        });
         // Сохраняем в нашу БД для быстрого доступа
         try {
             sessionStorage.saveSession({

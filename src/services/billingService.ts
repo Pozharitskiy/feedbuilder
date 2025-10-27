@@ -87,6 +87,7 @@ class BillingService {
 
     try {
       // Load OFFLINE session (shop token) - required for billing
+      // Must load from Shopify's sessionStorage (in shopify.ts), not from our custom db.ts
       let session = await sessionStorage.loadSession(`offline_${shop}`);
 
       if (!session) {
