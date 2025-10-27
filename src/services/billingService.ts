@@ -113,25 +113,30 @@ class BillingService {
       );
 
       // Use REST API instead of GraphQL (GraphQL billing is deprecated in v12)
-      const response = await fetch(
-        `https://${shop}/admin/api/2025-10/recurring_application_charges.json`,
-        {
-          method: "POST",
-          headers: {
-            "X-Shopify-Access-Token": session.accessToken,
-            "Content-Type": "application/json",
-          } as Record<string, string>,
-          body: JSON.stringify({
-            recurring_application_charge: {
-              name: `FeedBuilderly ${plan.displayName} Plan`,
-              price: plan.price,
-              return_url: `https://${process.env.HOST}/billing/callback?shop=${shop}&plan=${planName}`,
-              test: process.env.NODE_ENV !== "production",
-              trial_days: 14,
-            },
-          }),
-        }
-      );
+      const url = `https://${shop}/admin/api/2025-10/recurring_application_charges.json`;
+
+      console.log("📡 Sending REST API request:", {
+        url,
+        tokenLength: session.accessToken.length,
+        method: "POST",
+      });
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "X-Shopify-Access-Token": session.accessToken,
+          "Content-Type": "application/json",
+        } as Record<string, string>,
+        body: JSON.stringify({
+          recurring_application_charge: {
+            name: `FeedBuilderly ${plan.displayName} Plan`,
+            price: plan.price,
+            return_url: `https://${process.env.HOST}/billing/callback?shop=${shop}&plan=${planName}`,
+            test: process.env.NODE_ENV !== "production",
+            trial_days: 14,
+          },
+        }),
+      });
 
       if (!response.ok) {
         const error = await response.json();
