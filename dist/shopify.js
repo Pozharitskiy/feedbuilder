@@ -7,8 +7,10 @@ import path from "path";
 const appUrl = process.env.APP_URL;
 const hostName = new URL(appUrl).hostname;
 // Инициализация SQLite session storage
-const dbPath = path.join(process.cwd(), "feedbuilder.db");
-const sessionStorage = new SQLiteSessionStorage(dbPath);
+// Use persistent data directory if mounted, otherwise fallback to cwd
+const dataDir = process.env.DATA_DIR || process.cwd();
+const dbPath = path.join(dataDir, "feedbuilder.db");
+export const sessionStorage = new SQLiteSessionStorage(dbPath);
 console.log("🔧 Shopify config:", {
     appUrl,
     hostName,

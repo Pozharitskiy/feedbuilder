@@ -1,7 +1,9 @@
 import Database from "better-sqlite3";
 import path from "path";
 
-const dbPath = path.join(process.cwd(), "feedbuilder.db");
+// Use persistent data directory if mounted, otherwise fallback to cwd
+const dataDir = process.env.DATA_DIR || process.cwd();
+const dbPath = path.join(dataDir, "feedbuilder.db");
 export const db = new Database(dbPath);
 
 // Включаем WAL mode для лучшей производительности

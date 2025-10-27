@@ -26,6 +26,11 @@ Thumbs.db
 *.md
 !README.md
 
+# Database (will be created at runtime in persistent volume)
+*.db
+*.sqlite
+*.sqlite3
+
 # Other
 .prettierrc
 .eslintrc

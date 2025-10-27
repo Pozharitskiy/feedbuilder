@@ -1,6 +1,5 @@
 // Billing service for Shopify subscriptions
-import { sessionStorage } from "../db.js";
-import { shopify } from "../shopify.js";
+import { shopify, sessionStorage } from "../shopify.js";
 import type { PlanName, Subscription } from "../types/billing.js";
 import { PLANS } from "../types/billing.js";
 import { Session } from "@shopify/shopify-api";
@@ -10,7 +9,9 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const dbPath = path.join(__dirname, "../../feedbuilder.db");
+// Use persistent data directory if mounted, otherwise fallback to project root
+const dataDir = process.env.DATA_DIR || path.join(__dirname, "../..");
+const dbPath = path.join(dataDir, "feedbuilder.db");
 const db = new Database(dbPath);
 
 // Initialize subscriptions table
@@ -84,22 +85,18 @@ class BillingService {
       throw new Error("Cannot create charge for free plan");
     }
 
-    // Get session from database
-    const dbSession = sessionStorage.getSession(shop);
-    if (!dbSession) {
-      throw new Error("Shop session not found");
-    }
-
     try {
-      // Create Shopify API Session object
-      const session = new Session({
-        id: dbSession.id,
-        shop: dbSession.shop,
-        state: "active",
-        isOnline: dbSession.isOnline,
-        accessToken: dbSession.accessToken,
-        scope: dbSession.scopes,
-      });
+      // Load session directly from Shopify's session storage
+      let session = await sessionStorage.loadSession(`offline_${shop}`);
+
+      // If offline session not found, try online session
+      if (!session) {
+        session = await sessionStorage.loadSession(`online_${shop}`);
+      }
+
+      if (!session) {
+        throw new Error("Shop session not found");
+      }
 
       // Create GraphQL client using shopify-app-express
       const client = new shopify.api.clients.Graphql({ session });

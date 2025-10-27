@@ -401,10 +401,17 @@ router.get("/select", async (req, res) => {
     }
 
     // Check if shop has installed the app
-    const { sessionStorage } = await import("../db.js");
-    const session = sessionStorage.getSession(shop);
+    // Try to load session from Shopify's session storage
+    const { shopify, sessionStorage } = await import("../shopify.js");
+    let session = await sessionStorage.loadSession(`offline_${shop}`);
+
+    // If offline session not found, try online session
+    if (!session) {
+      session = await sessionStorage.loadSession(`online_${shop}`);
+    }
 
     if (!session) {
+      console.log(`⚠️ No session found for shop: ${shop}`);
       return res.send(`
 <!DOCTYPE html>
 <html>
