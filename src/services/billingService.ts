@@ -75,7 +75,7 @@ class BillingService {
     };
   }
 
-  // Create Shopify recurring charge (REAL IMPLEMENTATION)
+  // Create Shopify recurring charge (REAL IMPLEMENTATION - REST API)
   async createCharge(
     shop: string,
     planName: PlanName
@@ -87,7 +87,6 @@ class BillingService {
 
     try {
       // Load OFFLINE session (shop token) - required for billing
-      // Do NOT use online session (user token) - billing won't work!
       let session = await sessionStorage.loadSession(`offline_${shop}`);
 
       if (!session) {
@@ -96,88 +95,49 @@ class BillingService {
         );
       }
 
-      // Create GraphQL client using shopify-app-express
-      const client = new shopify.api.clients.Graphql({ session });
-
-      // GraphQL mutation to create app subscription
-      // Using appSubscriptionCreate directly (drafts are deprecated)
-      const response = await client.query({
-        data: {
-          query: `
-            mutation AppSubscriptionCreate(
-              $name: String!
-              $returnUrl: URL!
-              $trialDays: Int
-              $test: Boolean
-              $lineItems: [AppSubscriptionLineItemInput!]!
-            ) {
-              appSubscriptionCreate(
-                name: $name
-                returnUrl: $returnUrl
-                trialDays: $trialDays
-                test: $test
-                lineItems: $lineItems
-              ) {
-                appSubscription {
-                  id
-                  name
-                  status
-                  trialDays
-                }
-                confirmationUrl
-                userErrors {
-                  field
-                  message
-                }
-              }
-            }
-          `,
-          variables: {
-            name: `FeedBuilderly ${plan.displayName} Plan`,
-            returnUrl: `https://${process.env.HOST}/billing/callback?shop=${shop}&plan=${planName}`,
-            trialDays: 14,
-            test: process.env.NODE_ENV !== "production",
-            lineItems: [
-              {
-                appRecurringPricingDetails: {
-                  price: {
-                    amount: plan.price.toString(),
-                    currencyCode: "USD",
-                  },
-                  interval: "EVERY_30_DAYS",
-                },
-              },
-            ],
-          },
-        },
-      });
-
-      const result = response.body as any;
-
-      // Логирование для отладки
-      console.log("📦 Billing API Response:", JSON.stringify(result, null, 2));
-
-      // Check for GraphQL errors
-      if (result.errors?.length) {
-        console.error("❌ GraphQL errors:", result.errors);
-        throw new Error(`GraphQL error: ${result.errors[0].message}`);
-      }
-
-      const userErrors = result.data?.appSubscriptionCreate?.userErrors || [];
-      if (userErrors.length > 0) {
-        throw new Error(
-          `Shopify billing error: ${userErrors[0].message} (${userErrors[0].field})`
-        );
-      }
-
-      const confirmationUrl = result.data.appSubscriptionCreate.confirmationUrl;
-      const chargeId = result.data.appSubscriptionCreate.appSubscription.id;
-
-      console.log(
-        `✅ Created subscription for ${shop}: ${chargeId} — waiting for confirmation`
+      // Use REST API instead of GraphQL (GraphQL billing is deprecated in v12)
+      const response = await fetch(
+        `https://${shop}/admin/api/2025-10/recurring_application_charges.json`,
+        {
+          method: "POST",
+          headers: {
+            "X-Shopify-Access-Token": session.accessToken || "",
+            "Content-Type": "application/json",
+          } as Record<string, string>,
+          body: JSON.stringify({
+            recurring_application_charge: {
+              name: `FeedBuilderly ${plan.displayName} Plan`,
+              price: plan.price,
+              return_url: `https://${process.env.HOST}/billing/callback?shop=${shop}&plan=${planName}`,
+              test: process.env.NODE_ENV !== "production",
+              trial_days: 14,
+            },
+          }),
+        }
       );
 
-      return { confirmationUrl, chargeId };
+      if (!response.ok) {
+        const error = await response.json();
+        console.error("❌ Shopify REST API error:", error);
+        throw new Error(`Shopify billing error: ${JSON.stringify(error)}`);
+      }
+
+      const data = await response.json();
+      console.log("📦 Billing API Response:", JSON.stringify(data, null, 2));
+
+      const charge = data.recurring_application_charge;
+      if (!charge) {
+        throw new Error("No charge returned from API");
+      }
+
+      console.log(
+        `✅ Created subscription for ${shop}: ${charge.id} — waiting for confirmation`
+      );
+
+      return {
+        confirmationUrl: charge.confirmation_url,
+        chargeId: charge.id.toString(),
+      };
     } catch (error: any) {
       console.error("❌ Error creating Shopify subscription:", error);
       throw new Error(`Failed to create subscription: ${error.message}`);
