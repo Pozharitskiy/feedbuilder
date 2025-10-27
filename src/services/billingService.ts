@@ -104,35 +104,24 @@ class BillingService {
       // Create GraphQL client using shopify-app-express
       const client = new shopify.api.clients.Graphql({ session });
 
-      const isTestMode = process.env.NODE_ENV !== "production";
-
       // GraphQL mutation to create app subscription
       const response = await client.query({
         data: {
           query: `
-            mutation AppSubscriptionCreate(
+            mutation AppSubscriptionDraftCreate(
               $name: String!
               $returnUrl: URL!
-              $trialDays: Int
-              $test: Boolean
               $lineItems: [AppSubscriptionLineItemInput!]!
             ) {
-              appSubscriptionCreate(
+              appSubscriptionDraftCreate(
                 name: $name
                 returnUrl: $returnUrl
-                trialDays: $trialDays
-                test: $test
                 lineItems: $lineItems
               ) {
-                appSubscription {
+                appSubscriptionDraft {
                   id
-                  name
-                  status
-                  trialDays
-                  currentPeriodEnd
-                  test
+                  confirmationUrl
                 }
-                confirmationUrl
                 userErrors {
                   field
                   message
@@ -143,8 +132,6 @@ class BillingService {
           variables: {
             name: `FeedBuilderly ${plan.displayName} Plan`,
             returnUrl: `https://${process.env.HOST}/billing/callback?shop=${shop}&plan=${planName}`,
-            trialDays: 14, // 14-day free trial
-            test: isTestMode, // Test mode for development
             lineItems: [
               {
                 plan: {
@@ -165,25 +152,26 @@ class BillingService {
       const result = response.body as any;
 
       // Check for GraphQL errors
-      if (result.errors && result.errors.length > 0) {
+      if (result.errors?.length) {
         throw new Error(`GraphQL error: ${result.errors[0].message}`);
       }
 
-      // Check for user errors
-      const userErrors = result.data?.appSubscriptionCreate?.userErrors || [];
+      const userErrors =
+        result.data?.appSubscriptionDraftCreate?.userErrors || [];
       if (userErrors.length > 0) {
         throw new Error(
           `Shopify billing error: ${userErrors[0].message} (${userErrors[0].field})`
         );
       }
 
-      const confirmationUrl = result.data.appSubscriptionCreate.confirmationUrl;
-      const chargeId = result.data.appSubscriptionCreate.appSubscription.id;
+      const confirmationUrl =
+        result.data.appSubscriptionDraftCreate.appSubscriptionDraft
+          .confirmationUrl;
+      const chargeId =
+        result.data.appSubscriptionDraftCreate.appSubscriptionDraft.id;
 
       console.log(
-        `✅ Created ${
-          isTestMode ? "TEST" : "LIVE"
-        } subscription for ${shop}: ${chargeId}`
+        `✅ Created billing DRAFT for ${shop}: ${chargeId} — waiting for confirmation`
       );
 
       return { confirmationUrl, chargeId };
