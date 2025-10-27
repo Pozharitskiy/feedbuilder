@@ -1,0 +1,58 @@
+name: Cleanup Amsterdam Volumes
+
+on:
+  workflow_dispatch
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install flyctl
+        run: curl -L https://fly.io/install.sh | sh
+
+      - name: Add flyctl to PATH
+        run: echo "$HOME/.fly/bin" >> $GITHUB_PATH
+
+      - name: List Machines and Volumes
+        run: |
+          echo "=== MACHINES ==="
+          flyctl machines list -a feedbuilder
+          echo "=== VOLUMES ==="
+          flyctl volumes list -a feedbuilder
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_AUTH_TOKEN }}
+
+      - name: Destroy AMS Machines
+        run: |
+          # Get machines in ams region and destroy them
+          MACHINES=$(flyctl machines list -a feedbuilder --json | jq -r '.[] | select(.region=="ams") | .id' 2>/dev/null || echo "")
+          if [ ! -z "$MACHINES" ]; then
+            for MACHINE in $MACHINES; do
+              echo "Destroying machine: $MACHINE"
+              flyctl machines destroy $MACHINE -a feedbuilder --yes
+            done
+          else
+            echo "No AMS machines found"
+          fi
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_AUTH_TOKEN }}
+
+      - name: Destroy AMS Volumes
+        run: |
+          # Get volumes in ams region and destroy them
+          VOLUMES=$(flyctl volumes list -a feedbuilder --json | jq -r '.[] | select(.region=="ams") | .id' 2>/dev/null || echo "")
+          if [ ! -z "$VOLUMES" ]; then
+            for VOLUME in $VOLUMES; do
+              echo "Destroying volume: $VOLUME"
+              flyctl volumes destroy $VOLUME -a feedbuilder --yes
+            done
+          else
+            echo "No AMS volumes found"
+          fi
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_AUTH_TOKEN }}
+
+      - name: Verify Cleanup
+        run: flyctl volumes list -a feedbuilder
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_AUTH_TOKEN }}
