@@ -140,9 +140,9 @@ class BillingService {
             lineItems: [
               {
                 plan: {
-                  pricingDetails: {
+                  appRecurringPricingDetails: {
                     price: {
-                      amount: plan.price,
+                      amount: plan.price.toString(),
                       currencyCode: "USD",
                     },
                     interval: "EVERY_30_DAYS",
@@ -156,8 +156,12 @@ class BillingService {
 
       const result = response.body as any;
 
+      // Логирование для отладки
+      console.log("📦 Billing API Response:", JSON.stringify(result, null, 2));
+
       // Check for GraphQL errors
       if (result.errors?.length) {
+        console.error("❌ GraphQL errors:", result.errors);
         throw new Error(`GraphQL error: ${result.errors[0].message}`);
       }
 
