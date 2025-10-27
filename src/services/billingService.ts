@@ -139,14 +139,12 @@ class BillingService {
             test: process.env.NODE_ENV !== "production",
             lineItems: [
               {
-                plan: {
-                  appRecurringPricingDetails: {
-                    price: {
-                      amount: plan.price.toString(),
-                      currencyCode: "USD",
-                    },
-                    interval: "EVERY_30_DAYS",
+                appRecurringPricingDetails: {
+                  price: {
+                    amount: plan.price.toString(),
+                    currencyCode: "USD",
                   },
+                  interval: "EVERY_30_DAYS",
                 },
               },
             ],

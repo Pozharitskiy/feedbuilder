@@ -30,6 +30,9 @@ export const shopify = shopifyApp({
     scopes: (process.env.SCOPES || "read_products").split(","),
     hostName,
     apiVersion: ApiVersion.October25,
+    future: {
+      unstable_managedPricingSupport: true,
+    },
   },
   auth: {
     path: "/auth",
