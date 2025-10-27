@@ -18,7 +18,7 @@ jobs:
           flyctl volumes create feedbuilder_data \
             --size 3 \
             --region ams \
-            --app feedbuilderly
+            --app feedbuilder
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_AUTH_TOKEN }}
 
