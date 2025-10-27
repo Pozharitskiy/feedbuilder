@@ -105,23 +105,31 @@ class BillingService {
       const client = new shopify.api.clients.Graphql({ session });
 
       // GraphQL mutation to create app subscription
+      // Using appSubscriptionCreate directly (drafts are deprecated)
       const response = await client.query({
         data: {
           query: `
-            mutation AppSubscriptionDraftCreate(
+            mutation AppSubscriptionCreate(
               $name: String!
               $returnUrl: URL!
+              $trialDays: Int
+              $test: Boolean
               $lineItems: [AppSubscriptionLineItemInput!]!
             ) {
-              appSubscriptionDraftCreate(
+              appSubscriptionCreate(
                 name: $name
                 returnUrl: $returnUrl
+                trialDays: $trialDays
+                test: $test
                 lineItems: $lineItems
               ) {
-                appSubscriptionDraft {
+                appSubscription {
                   id
-                  confirmationUrl
+                  name
+                  status
+                  trialDays
                 }
+                confirmationUrl
                 userErrors {
                   field
                   message
@@ -132,6 +140,8 @@ class BillingService {
           variables: {
             name: `FeedBuilderly ${plan.displayName} Plan`,
             returnUrl: `https://${process.env.HOST}/billing/callback?shop=${shop}&plan=${planName}`,
+            trialDays: 14,
+            test: process.env.NODE_ENV !== "production",
             lineItems: [
               {
                 plan: {
@@ -156,22 +166,18 @@ class BillingService {
         throw new Error(`GraphQL error: ${result.errors[0].message}`);
       }
 
-      const userErrors =
-        result.data?.appSubscriptionDraftCreate?.userErrors || [];
+      const userErrors = result.data?.appSubscriptionCreate?.userErrors || [];
       if (userErrors.length > 0) {
         throw new Error(
           `Shopify billing error: ${userErrors[0].message} (${userErrors[0].field})`
         );
       }
 
-      const confirmationUrl =
-        result.data.appSubscriptionDraftCreate.appSubscriptionDraft
-          .confirmationUrl;
-      const chargeId =
-        result.data.appSubscriptionDraftCreate.appSubscriptionDraft.id;
+      const confirmationUrl = result.data.appSubscriptionCreate.confirmationUrl;
+      const chargeId = result.data.appSubscriptionCreate.appSubscription.id;
 
       console.log(
-        `✅ Created billing DRAFT for ${shop}: ${chargeId} — waiting for confirmation`
+        `✅ Created subscription for ${shop}: ${chargeId} — waiting for confirmation`
       );
 
       return { confirmationUrl, chargeId };
