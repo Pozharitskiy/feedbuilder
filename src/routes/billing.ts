@@ -400,6 +400,73 @@ router.get("/select", async (req, res) => {
       return res.status(400).send("Invalid plan");
     }
 
+    // Check if shop has installed the app
+    const { sessionStorage } = await import("../db.js");
+    const session = sessionStorage.getSession(shop);
+    
+    if (!session) {
+      return res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App Not Installed</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0e27;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      color: white;
+    }
+    .card {
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px;
+      padding: 48px;
+      text-align: center;
+      max-width: 500px;
+    }
+    h1 { font-size: 48px; margin: 0 0 16px 0; }
+    h2 { color: rgba(255,255,255,0.9); margin: 0 0 24px 0; }
+    p { color: rgba(255,255,255,0.7); line-height: 1.6; margin-bottom: 32px; }
+    .button {
+      display: inline-block;
+      padding: 16px 32px;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      color: white;
+      text-decoration: none;
+      border-radius: 12px;
+      font-weight: 600;
+      transition: all 0.3s;
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+    }
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.6);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>⚠️</h1>
+    <h2>App Not Installed</h2>
+    <p>
+      Please install FeedBuilderly on your store first.<br>
+      After installation, you'll be able to choose your plan.
+    </p>
+    <a href="/install?shop=${shop}" class="button">Install FeedBuilderly</a>
+  </div>
+</body>
+</html>
+      `);
+    }
+
     // If free plan, just activate
     if (planName === "free") {
       billingService.createFreeSubscription(shop);
