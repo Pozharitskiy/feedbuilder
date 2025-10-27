@@ -95,13 +95,22 @@ class BillingService {
         );
       }
 
+      if (!session.accessToken) {
+        console.error("❌ Session found but accessToken is empty:", session);
+        throw new Error("Session has no access token");
+      }
+
+      console.log(
+        `✅ Loaded session for ${shop}, token length: ${session.accessToken.length}`
+      );
+
       // Use REST API instead of GraphQL (GraphQL billing is deprecated in v12)
       const response = await fetch(
         `https://${shop}/admin/api/2025-10/recurring_application_charges.json`,
         {
           method: "POST",
           headers: {
-            "X-Shopify-Access-Token": session.accessToken || "",
+            "X-Shopify-Access-Token": session.accessToken,
             "Content-Type": "application/json",
           } as Record<string, string>,
           body: JSON.stringify({

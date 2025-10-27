@@ -25,7 +25,10 @@ export const shopify = shopifyApp({
         apiSecretKey: process.env.SHOPIFY_API_SECRET,
         scopes: (process.env.SCOPES || "read_products").split(","),
         hostName,
-        apiVersion: ApiVersion.October24,
+        apiVersion: ApiVersion.October25,
+        future: {
+            unstable_managedPricingSupport: true,
+        },
     },
     auth: {
         path: "/auth",
