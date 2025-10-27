@@ -3,6 +3,24 @@ import { sessionStorage } from "../db.js";
 export const authRoutes = (app) => {
     // Используем middleware напрямую
     app.get("/auth", shopify.auth.begin());
+    // Endpoint для удаления сессии (для отладки)
+    app.get("/auth/logout", async (req, res) => {
+        const shop = req.query.shop;
+        if (!shop) {
+            return res.status(400).send("Missing shop parameter");
+        }
+        try {
+            // Delete both offline and online sessions
+            await sessionStorage.deleteSession(`offline_${shop}`);
+            await sessionStorage.deleteSession(`online_${shop}`);
+            console.log(`✅ Deleted sessions for ${shop}`);
+            res.send(`Sessions deleted for ${shop}. <a href="/install?shop=${shop}">Reinstall app</a>`);
+        }
+        catch (error) {
+            console.error("❌ Failed to delete sessions:", error);
+            res.status(500).send(`Error: ${error}`);
+        }
+    });
     app.get("/auth/callback", shopify.auth.callback(), async (req, res) => {
         console.log("✅ Auth callback completed");
         // После того как middleware отработал, сессия доступна в res.locals
