@@ -104,35 +104,13 @@ router.get("/pricing", (req, res) => {
       padding: 40px 32px;
       transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
-      overflow: visible;
-    }
-    
-    .plan::before {
-      content: '';
-      position: absolute;
-      inset: -1px;
-      border-radius: 24px;
-      padding: 1px;
-      background: linear-gradient(135deg, 
-        rgba(255,255,255,0.1) 0%, 
-        rgba(255,255,255,0.05) 100%);
-      -webkit-mask: 
-        linear-gradient(#fff 0 0) content-box, 
-        linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-      opacity: 0;
-      transition: opacity 0.4s;
     }
     
     .plan:hover {
       transform: translateY(-8px) scale(1.02);
       background: rgba(255,255,255,0.06);
       border-color: rgba(255,255,255,0.15);
-    }
-    
-    .plan:hover::before {
-      opacity: 1;
+      box-shadow: 0 20px 60px rgba(99, 102, 241, 0.2);
     }
     
     .plan.recommended {
@@ -154,6 +132,8 @@ router.get("/pricing", (req, res) => {
       font-weight: 700;
       letter-spacing: 0.05em;
       box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+      pointer-events: none;
+      z-index: 1;
     }
     
     .plan.current {
@@ -240,6 +220,8 @@ router.get("/pricing", (req, res) => {
       text-align: center;
       font-family: 'Inter', sans-serif;
       letter-spacing: -0.01em;
+      position: relative;
+      z-index: 10;
     }
     
     .plan-button.primary {
