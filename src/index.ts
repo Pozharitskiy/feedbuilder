@@ -4,11 +4,16 @@ import { shopify, ensureInstalled } from "./shopify.js";
 import { authRoutes } from "./routes/auth.js";
 import { feedRoutes } from "./routes/feed.js";
 import { webhookRoutes } from "./routes/webhooks.js";
+import billingRoutes from "./routes/billing.js";
 import { feedUpdater } from "./services/feedUpdater.js";
 import { sessionStorage, feedCacheStorage } from "./db.js";
+import { initBillingDb, billingService } from "./services/billingService.js";
 
 const app = express();
 app.use(express.json());
+
+// Initialize billing database
+initBillingDb();
 
 app.use(shopify.cspHeaders());
 app.use("/install", ensureInstalled());
@@ -16,6 +21,7 @@ app.use("/install", ensureInstalled());
 authRoutes(app);
 feedRoutes(app);
 webhookRoutes(app);
+app.use("/billing", billingRoutes);
 
 // Health check endpoint (для Fly.io и мониторинга)
 app.get("/ping", (req, res) => {
@@ -43,6 +49,9 @@ app.get("/status", (req, res) => {
     };
   });
 
+  // Get revenue stats
+  const revenueStats = billingService.getRevenueStats();
+
   res.json({
     status: "ok",
     version: "1.0.0",
@@ -52,6 +61,12 @@ app.get("/status", (req, res) => {
       shopsInstalled: shops.length,
       shops: shops,
       cache: cacheStats,
+    },
+    revenue: {
+      mrr: revenueStats.mrr,
+      arr: revenueStats.arr,
+      subscriptions: revenueStats.totalSubscriptions,
+      byPlan: revenueStats.byPlan,
     },
   });
 });

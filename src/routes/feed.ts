@@ -8,6 +8,8 @@ import {
   isImplemented,
   FEED_CATEGORIES,
 } from "../types/feed.js";
+import { billingService } from "../services/billingService.js";
+import { isPlanAllowed, PLANS } from "../types/billing.js";
 
 export const feedRoutes = (app: any) => {
   // Получить список всех поддерживаемых форматов
@@ -100,6 +102,39 @@ export const feedRoutes = (app: any) => {
         return res.status(404).json({
           error: "Shop not found",
           message: "This shop has not installed the app yet",
+        });
+      }
+
+      // 💰 BILLING: Check subscription and plan limits
+      const subscription = billingService.getSubscription(shop);
+      if (!subscription) {
+        return res.status(404).json({
+          error: "Subscription not found",
+          message: "Please contact support",
+        });
+      }
+
+      const client = new ShopifyClient(shop, session.accessToken);
+      const products = await client.getAllProducts();
+      const productsCount = products.length;
+
+      const planCheck = isPlanAllowed(
+        subscription.planName,
+        format,
+        productsCount
+      );
+
+      if (!planCheck.allowed) {
+        return res.status(403).json({
+          error: "Plan limit exceeded",
+          message: planCheck.reason,
+          currentPlan: subscription.planName,
+          upgradeUrl: `/pricing?shop=${shop}`,
+          details: {
+            format,
+            productsCount,
+            maxProducts: PLANS[subscription.planName].maxProducts,
+          },
         });
       }
 
