@@ -6,7 +6,7 @@ export const authRoutes = (app: any) => {
   // Используем middleware напрямую
   app.get("/auth", shopify.auth.begin());
 
-  // Endpoint для удаления сессии (для отладки)
+  // Endpoint для удаления сессии и регенерации токена
   app.get("/auth/logout", async (req: Request, res: Response) => {
     const shop = req.query.shop as string;
     if (!shop) {
@@ -43,13 +43,19 @@ export const authRoutes = (app: any) => {
 
       const shopDomain = session.shop;
       const accessToken = session.accessToken;
+      const expectedScopes = (process.env.SCOPES || "read_products").split(",");
+      const receivedScopes = (session.scope || "").split(",").filter(Boolean);
 
       // Логирование для отладки
       console.log("📦 New session from OAuth:", {
         shop: shopDomain,
         tokenLength: accessToken?.length,
         tokenPreview: accessToken?.substring(0, 10) + "...",
-        scopes: session.scope,
+        receivedScopes: receivedScopes,
+        expectedScopes: expectedScopes,
+        scopesMatch:
+          JSON.stringify(receivedScopes.sort()) ===
+          JSON.stringify(expectedScopes.sort()),
       });
 
       // Сохраняем в нашу БД для быстрого доступа
