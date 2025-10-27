@@ -6,6 +6,9 @@ on:
 jobs:
   create-volume:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        region: [fra, ams]
     steps:
       - name: Install flyctl
         run: curl -L https://fly.io/install.sh | sh
@@ -13,11 +16,11 @@ jobs:
       - name: Add flyctl to PATH
         run: echo "$HOME/.fly/bin" >> $GITHUB_PATH
 
-      - name: Create Volume
+      - name: Create Volume in ${{ matrix.region }}
         run: |
           flyctl volumes create feedbuilder_data \
             --size 3 \
-            --region ams \
+            --region ${{ matrix.region }} \
             --app feedbuilder \
             --yes
         env:
