@@ -142,7 +142,7 @@ class BillingService {
             lineItems: [
               {
                 plan: {
-                  appRecurringPricingDetails: {
+                  appRecurringPricing: {
                     price: {
                       amount: plan.price,
                       currencyCode: "USD",
