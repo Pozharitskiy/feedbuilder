@@ -214,3 +214,49 @@ sqlite3 /app/data/feedbuilder.db ".restore /tmp/restore.db"
 - ✅ Изолирована от кода приложения
 
 **Все готово к продакшн использованию!** 🚀
+
+## Database Repair Mechanism
+
+### Problem: Corrupted Sessions
+During the OAuth flow, sometimes session data can be stored as the string `"undefined"` instead of valid JSON. This causes the error:
+```
+SyntaxError: "undefined" is not valid JSON at JSON.parse
+```
+
+### Solution
+The app now has a multi-layer protection:
+
+1. **Automatic Repair on Startup** (`repairDatabase()`)
+   - Called automatically when the app starts
+   - Identifies and deletes any corrupted sessions
+   - Logs all cleanup actions
+
+2. **Validation on Save** (`storeSession()`)
+   - Validates that the session object has required fields (id, shop)
+   - Checks that serialization produces valid JSON
+   - Prevents storing invalid data
+
+3. **Safe Loading** (`loadSession()`)
+   - Checks for null, undefined, or string "undefined" before parsing
+   - Returns null gracefully instead of throwing errors
+   - Logs warnings for invalid data
+
+### How It Works
+```typescript
+// Automatically called at startup
+repairDatabase() → finds corrupted sessions → deletes them
+
+// During OAuth
+storeSession(session) → validates → serializes → saves
+
+// When accessing sessions
+loadSession(id) → checks for corruption → parses safely
+```
+
+### Database Schema
+The sessions table has:
+- `id` (TEXT PRIMARY KEY)
+- `shop` (TEXT NOT NULL)
+- `data` (TEXT NOT NULL) - Must contain valid JSON
+- `createdAt` (INTEGER NOT NULL)
+- `updatedAt` (INTEGER NOT NULL)

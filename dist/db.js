@@ -33,6 +33,27 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_feed_cache_shop_format ON feed_cache(shop, format);
 `);
 console.log("✅ Database initialized:", dbPath);
+// Функция для очистки и восстановления БД от поддельных данных
+export function repairDatabase() {
+    try {
+        console.log("🔧 Checking database integrity...");
+        // Удаляем сессии с поддельными данными
+        const badSessions = db
+            .prepare(`SELECT id FROM sessions WHERE data IS NULL OR data = 'undefined' OR data = 'null'`)
+            .all();
+        if (badSessions.length > 0) {
+            console.warn(`⚠️ Found ${badSessions.length} corrupted sessions, cleaning up...`);
+            for (const session of badSessions) {
+                db.prepare("DELETE FROM sessions WHERE id = ?").run(session.id);
+                console.log(`🗑️ Deleted corrupted session: ${session.id}`);
+            }
+        }
+        console.log("✅ Database repair completed");
+    }
+    catch (error) {
+        console.error("❌ Error repairing database:", error);
+    }
+}
 // Simple custom session storage - just save raw session data
 export const customSessionStorage = {
     loadSession: async (sessionId) => {
@@ -43,6 +64,11 @@ export const customSessionStorage = {
                 .get(sessionId);
             if (!row) {
                 console.warn(`⚠️ Session not found: ${sessionId}`);
+                return null;
+            }
+            // Защита от сохранённого "undefined" или null
+            if (!row.data || row.data === "undefined" || row.data === "null") {
+                console.warn(`⚠️ Invalid session data for ${sessionId}: ${row.data}`);
                 return null;
             }
             const sessionData = JSON.parse(row.data);
@@ -57,12 +83,23 @@ export const customSessionStorage = {
     storeSession: async (session) => {
         try {
             console.log(`💾 Storing session: ${session.id} for shop: ${session.shop}`);
+            // Проверка что session объект валидный
+            if (!session || !session.id || !session.shop) {
+                console.error(`❌ Invalid session object:`, session);
+                return false;
+            }
             const now = Date.now();
+            const serialized = JSON.stringify(session);
+            // Проверка что сериализация прошла успешно
+            if (!serialized || serialized === "undefined") {
+                console.error(`❌ Failed to serialize session:`, serialized);
+                return false;
+            }
             db.prepare(`
         INSERT OR REPLACE INTO sessions
         (id, shop, data, createdAt, updatedAt)
         VALUES (?, ?, ?, ?, ?)
-      `).run(session.id, session.shop, JSON.stringify(session), now, now);
+      `).run(session.id, session.shop, serialized, now, now);
             console.log(`✅ Session stored: ${session.id}`);
             // Verify immediately
             const verify = await customSessionStorage.loadSession(session.id);
@@ -96,13 +133,19 @@ export const customSessionStorage = {
         try {
             if (shopIds.length === 0) {
                 const rows = db.prepare("SELECT data FROM sessions").all();
-                return rows.map((row) => JSON.parse(row.data));
+                return rows
+                    .filter((row) => row.data && row.data !== "undefined" && row.data !== "null")
+                    .map((row) => JSON.parse(row.data))
+                    .filter(Boolean);
             }
             const placeholders = shopIds.map(() => "?").join(",");
             const rows = db
                 .prepare(`SELECT data FROM sessions WHERE shop IN (${placeholders})`)
                 .all(...shopIds);
-            return rows.map((row) => JSON.parse(row.data));
+            return rows
+                .filter((row) => row.data && row.data !== "undefined" && row.data !== "null")
+                .map((row) => JSON.parse(row.data))
+                .filter(Boolean);
         }
         catch (error) {
             console.error("❌ Error finding sessions:", error);
@@ -127,7 +170,10 @@ export const customSessionStorage = {
             const rows = db
                 .prepare("SELECT data FROM sessions WHERE shop = ?")
                 .all(shop);
-            return rows.map((row) => JSON.parse(row.data));
+            return rows
+                .filter((row) => row.data && row.data !== "undefined" && row.data !== "null")
+                .map((row) => JSON.parse(row.data))
+                .filter(Boolean);
         }
         catch (error) {
             console.error("❌ Error finding sessions by shop:", error);

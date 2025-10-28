@@ -38,6 +38,30 @@ db.exec(`
 
 console.log("✅ Database initialized:", dbPath);
 
+// Функция для очистки и восстановления БД от поддельных данных
+export function repairDatabase() {
+  try {
+    console.log("🔧 Checking database integrity...");
+    
+    // Удаляем сессии с поддельными данными
+    const badSessions = db
+      .prepare(`SELECT id FROM sessions WHERE data IS NULL OR data = 'undefined' OR data = 'null'`)
+      .all() as any[];
+    
+    if (badSessions.length > 0) {
+      console.warn(`⚠️ Found ${badSessions.length} corrupted sessions, cleaning up...`);
+      for (const session of badSessions) {
+        db.prepare("DELETE FROM sessions WHERE id = ?").run(session.id);
+        console.log(`🗑️ Deleted corrupted session: ${session.id}`);
+      }
+    }
+    
+    console.log("✅ Database repair completed");
+  } catch (error) {
+    console.error("❌ Error repairing database:", error);
+  }
+}
+
 export interface FeedCache {
   id: number;
   shop: string;
@@ -61,6 +85,12 @@ export const customSessionStorage = {
         return null;
       }
 
+      // Защита от сохранённого "undefined" или null
+      if (!row.data || row.data === "undefined" || row.data === "null") {
+        console.warn(`⚠️ Invalid session data for ${sessionId}: ${row.data}`);
+        return null;
+      }
+
       const sessionData = JSON.parse(row.data);
       console.log(
         `✅ Session loaded: ${sessionId} for shop ${sessionData.shop}`
@@ -77,7 +107,21 @@ export const customSessionStorage = {
       console.log(
         `💾 Storing session: ${session.id} for shop: ${session.shop}`
       );
+      
+      // Проверка что session объект валидный
+      if (!session || !session.id || !session.shop) {
+        console.error(`❌ Invalid session object:`, session);
+        return false;
+      }
+
       const now = Date.now();
+      const serialized = JSON.stringify(session);
+
+      // Проверка что сериализация прошла успешно
+      if (!serialized || serialized === "undefined") {
+        console.error(`❌ Failed to serialize session:`, serialized);
+        return false;
+      }
 
       db.prepare(
         `
@@ -85,7 +129,7 @@ export const customSessionStorage = {
         (id, shop, data, createdAt, updatedAt)
         VALUES (?, ?, ?, ?, ?)
       `
-      ).run(session.id, session.shop, JSON.stringify(session), now, now);
+      ).run(session.id, session.shop, serialized, now, now);
 
       console.log(`✅ Session stored: ${session.id}`);
 
@@ -120,7 +164,10 @@ export const customSessionStorage = {
     try {
       if (shopIds.length === 0) {
         const rows = db.prepare("SELECT data FROM sessions").all() as any[];
-        return rows.map((row) => JSON.parse(row.data));
+        return rows
+          .filter((row) => row.data && row.data !== "undefined" && row.data !== "null")
+          .map((row) => JSON.parse(row.data))
+          .filter(Boolean);
       }
 
       const placeholders = shopIds.map(() => "?").join(",");
@@ -128,7 +175,10 @@ export const customSessionStorage = {
         .prepare(`SELECT data FROM sessions WHERE shop IN (${placeholders})`)
         .all(...shopIds) as any[];
 
-      return rows.map((row) => JSON.parse(row.data));
+      return rows
+        .filter((row) => row.data && row.data !== "undefined" && row.data !== "null")
+        .map((row) => JSON.parse(row.data))
+        .filter(Boolean);
     } catch (error) {
       console.error("❌ Error finding sessions:", error);
       return [];
@@ -154,7 +204,10 @@ export const customSessionStorage = {
         .prepare("SELECT data FROM sessions WHERE shop = ?")
         .all(shop) as any[];
 
-      return rows.map((row) => JSON.parse(row.data));
+      return rows
+        .filter((row) => row.data && row.data !== "undefined" && row.data !== "null")
+        .map((row) => JSON.parse(row.data))
+        .filter(Boolean);
     } catch (error) {
       console.error("❌ Error finding sessions by shop:", error);
       return [];

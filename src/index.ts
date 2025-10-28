@@ -8,12 +8,16 @@ import billingRoutes from "./routes/billing.js";
 import { feedUpdater } from "./services/feedUpdater.js";
 import { feedCacheStorage } from "./db.js";
 import { initBillingDb, billingService } from "./services/billingService.js";
+import { repairDatabase } from "./db.js";
 
 const app = express();
 app.use(express.json());
 
 // Initialize billing database
 initBillingDb();
+
+// Repair database from corrupted data
+repairDatabase();
 
 app.use(shopify.cspHeaders());
 app.use("/install", ensureInstalled());
