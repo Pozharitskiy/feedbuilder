@@ -96,13 +96,13 @@ export const customSessionStorage = {
         try {
             if (shopIds.length === 0) {
                 const rows = db.prepare("SELECT data FROM sessions").all();
-                return rows.map(row => JSON.parse(row.data));
+                return rows.map((row) => JSON.parse(row.data));
             }
             const placeholders = shopIds.map(() => "?").join(",");
             const rows = db
                 .prepare(`SELECT data FROM sessions WHERE shop IN (${placeholders})`)
                 .all(...shopIds);
-            return rows.map(row => JSON.parse(row.data));
+            return rows.map((row) => JSON.parse(row.data));
         }
         catch (error) {
             console.error("❌ Error finding sessions:", error);
@@ -127,7 +127,7 @@ export const customSessionStorage = {
             const rows = db
                 .prepare("SELECT data FROM sessions WHERE shop = ?")
                 .all(shop);
-            return rows.map(row => JSON.parse(row.data));
+            return rows.map((row) => JSON.parse(row.data));
         }
         catch (error) {
             console.error("❌ Error finding sessions by shop:", error);
