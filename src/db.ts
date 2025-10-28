@@ -42,20 +42,24 @@ console.log("✅ Database initialized:", dbPath);
 export function repairDatabase() {
   try {
     console.log("🔧 Checking database integrity...");
-    
+
     // Удаляем сессии с поддельными данными
     const badSessions = db
-      .prepare(`SELECT id FROM sessions WHERE data IS NULL OR data = 'undefined' OR data = 'null'`)
+      .prepare(
+        `SELECT id FROM sessions WHERE data IS NULL OR data = 'undefined' OR data = 'null'`
+      )
       .all() as any[];
-    
+
     if (badSessions.length > 0) {
-      console.warn(`⚠️ Found ${badSessions.length} corrupted sessions, cleaning up...`);
+      console.warn(
+        `⚠️ Found ${badSessions.length} corrupted sessions, cleaning up...`
+      );
       for (const session of badSessions) {
         db.prepare("DELETE FROM sessions WHERE id = ?").run(session.id);
         console.log(`🗑️ Deleted corrupted session: ${session.id}`);
       }
     }
-    
+
     console.log("✅ Database repair completed");
   } catch (error) {
     console.error("❌ Error repairing database:", error);
@@ -107,7 +111,7 @@ export const customSessionStorage = {
       console.log(
         `💾 Storing session: ${session.id} for shop: ${session.shop}`
       );
-      
+
       // Проверка что session объект валидный
       if (!session || !session.id || !session.shop) {
         console.error(`❌ Invalid session object:`, session);
@@ -165,7 +169,9 @@ export const customSessionStorage = {
       if (shopIds.length === 0) {
         const rows = db.prepare("SELECT data FROM sessions").all() as any[];
         return rows
-          .filter((row) => row.data && row.data !== "undefined" && row.data !== "null")
+          .filter(
+            (row) => row.data && row.data !== "undefined" && row.data !== "null"
+          )
           .map((row) => JSON.parse(row.data))
           .filter(Boolean);
       }
@@ -176,7 +182,9 @@ export const customSessionStorage = {
         .all(...shopIds) as any[];
 
       return rows
-        .filter((row) => row.data && row.data !== "undefined" && row.data !== "null")
+        .filter(
+          (row) => row.data && row.data !== "undefined" && row.data !== "null"
+        )
         .map((row) => JSON.parse(row.data))
         .filter(Boolean);
     } catch (error) {
@@ -205,7 +213,9 @@ export const customSessionStorage = {
         .all(shop) as any[];
 
       return rows
-        .filter((row) => row.data && row.data !== "undefined" && row.data !== "null")
+        .filter(
+          (row) => row.data && row.data !== "undefined" && row.data !== "null"
+        )
         .map((row) => JSON.parse(row.data))
         .filter(Boolean);
     } catch (error) {

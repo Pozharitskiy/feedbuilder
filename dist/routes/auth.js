@@ -29,9 +29,19 @@ export const authRoutes = (app) => {
     console.log("📍 Registering /auth/callback route");
     app.get("/auth/callback", (req, res, next) => {
         console.log("🔴 BEFORE shopify.auth.callback() middleware");
+        console.log("   Request query:", req.query);
         next();
     }, shopify.auth.callback(), (req, res, next) => {
         console.log("🟢 AFTER shopify.auth.callback() middleware");
+        console.log("   res.locals keys:", Object.keys(res.locals || {}));
+        if (res.locals?.shopify) {
+            console.log("   shopify keys:", Object.keys(res.locals.shopify));
+            if (res.locals.shopify.session) {
+                console.log("   ✅ Session object present in middleware");
+                console.log("   Session ID:", res.locals.shopify.session.id);
+                console.log("   Session shop:", res.locals.shopify.session.shop);
+            }
+        }
         next();
     }, async (req, res) => {
         console.log("✅ Auth callback handler START");
@@ -46,7 +56,13 @@ export const authRoutes = (app) => {
         let session = res.locals?.shopify?.session;
         console.log("📦 Session from middleware:", session ? "FOUND" : "NOT FOUND");
         console.log("📦 Session type:", typeof session);
-        console.log("📦 Session:", session);
+        if (session) {
+            console.log("📦 Session ID:", session.id);
+            console.log("📦 Session shop:", session.shop);
+            console.log("📦 Session hasAccessToken:", !!session.accessToken);
+            console.log("📦 Session scope:", session.scope);
+            console.log("📦 Full session:", JSON.stringify(session, null, 2));
+        }
         if (!session) {
             console.error("❌ No session found after callback middleware");
             console.error("📦 res.locals:", res.locals);
@@ -66,6 +82,7 @@ export const authRoutes = (app) => {
         // Explicitly save session
         try {
             console.log("1️⃣ Attempting to store session...");
+            console.log("   Session object to store:", session);
             const success = await sessionStorage.storeSession(session);
             console.log("2️⃣ Store result:", success);
             if (!success) {

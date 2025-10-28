@@ -38,11 +38,21 @@ export const authRoutes = (app: any) => {
     "/auth/callback",
     (req: Request, res: Response, next: any) => {
       console.log("🔴 BEFORE shopify.auth.callback() middleware");
+      console.log("   Request query:", req.query);
       next();
     },
     shopify.auth.callback(),
     (req: Request, res: Response, next: any) => {
       console.log("🟢 AFTER shopify.auth.callback() middleware");
+      console.log("   res.locals keys:", Object.keys((res as any).locals || {}));
+      if ((res as any).locals?.shopify) {
+        console.log("   shopify keys:", Object.keys((res as any).locals.shopify));
+        if ((res as any).locals.shopify.session) {
+          console.log("   ✅ Session object present in middleware");
+          console.log("   Session ID:", (res as any).locals.shopify.session.id);
+          console.log("   Session shop:", (res as any).locals.shopify.session.shop);
+        }
+      }
       next();
     },
     async (req: Request, res: Response) => {
@@ -70,7 +80,13 @@ export const authRoutes = (app: any) => {
         session ? "FOUND" : "NOT FOUND"
       );
       console.log("📦 Session type:", typeof session);
-      console.log("📦 Session:", session);
+      if (session) {
+        console.log("📦 Session ID:", session.id);
+        console.log("📦 Session shop:", session.shop);
+        console.log("📦 Session hasAccessToken:", !!session.accessToken);
+        console.log("📦 Session scope:", session.scope);
+        console.log("📦 Full session:", JSON.stringify(session, null, 2));
+      }
 
       if (!session) {
         console.error("❌ No session found after callback middleware");
@@ -98,6 +114,7 @@ export const authRoutes = (app: any) => {
       // Explicitly save session
       try {
         console.log("1️⃣ Attempting to store session...");
+        console.log("   Session object to store:", session);
         const success = await sessionStorage.storeSession(session);
         console.log("2️⃣ Store result:", success);
 
