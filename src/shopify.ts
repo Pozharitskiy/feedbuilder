@@ -4,6 +4,7 @@ import { ApiVersion } from "@shopify/shopify-api";
 import { SQLiteSessionStorage } from "@shopify/shopify-app-session-storage-sqlite";
 import express from "express";
 import path from "path";
+import Database from "better-sqlite3";
 
 const appUrl = process.env.APP_URL!;
 const hostName = new URL(appUrl).hostname;
@@ -19,6 +20,39 @@ export const sessionStorage = new SQLiteSessionStorage(dbPath);
   try {
     await sessionStorage.ready;
     console.log("✅ Session storage initialized");
+
+    // Clean up corrupted/short tokens (< 50 chars are invalid)
+    // Shopify tokens should be 40+ characters like shpca_xxxxxxxx...
+    try {
+      const db = new Database(dbPath);
+      const sessions = db
+        .prepare("SELECT * FROM shopify_sessions")
+        .all() as any[];
+
+      console.log(`🔍 Found ${sessions.length} sessions in database`);
+
+      for (const session of sessions) {
+        try {
+          const sessionData = JSON.parse(session.session_data);
+          if (sessionData.accessToken && sessionData.accessToken.length < 40) {
+            console.warn(
+              `⚠️ Deleting invalid session for ${session.shop} (token length: ${sessionData.accessToken.length})`
+            );
+            db.prepare("DELETE FROM shopify_sessions WHERE id = ?").run(
+              session.id
+            );
+          }
+        } catch (e) {
+          // If parsing fails, skip
+        }
+      }
+      db.close();
+    } catch (cleanupError) {
+      console.warn(
+        "⚠️ Could not cleanup sessions:",
+        (cleanupError as any).message
+      );
+    }
   } catch (error) {
     console.error("❌ Failed to initialize session storage:", error);
   }
