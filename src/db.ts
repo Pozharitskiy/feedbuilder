@@ -9,6 +9,51 @@ export const db = new Database(dbPath);
 // Включаем WAL mode для лучшей производительности
 db.pragma("journal_mode = WAL");
 
+// Проверим и пересоздадим таблицу если нужно
+function migrateSessionsTable() {
+  try {
+    console.log("🔍 Checking sessions table structure...");
+    
+    const tableInfo = db
+      .prepare("PRAGMA table_info(sessions)")
+      .all() as any[];
+    
+    const columns = tableInfo.map((col) => col.name);
+    const hasDataColumn = columns.includes("data");
+    
+    if (!hasDataColumn) {
+      console.warn(
+        `⚠️ Sessions table has wrong structure! Columns: ${columns.join(", ")}`
+      );
+      console.log("🔄 Migrating sessions table...");
+      
+      // Drop old table
+      db.prepare("DROP TABLE IF EXISTS sessions").run();
+      console.log("   Dropped old sessions table");
+      
+      // Create new table with correct structure
+      db.exec(`
+        CREATE TABLE sessions (
+          id TEXT PRIMARY KEY,
+          shop TEXT NOT NULL,
+          data TEXT NOT NULL,
+          createdAt INTEGER NOT NULL,
+          updatedAt INTEGER NOT NULL
+        );
+        CREATE INDEX idx_sessions_shop ON sessions(shop);
+      `);
+      
+      console.log("   ✅ Created new sessions table with correct structure");
+    } else {
+      console.log("✅ Sessions table has correct structure");
+    }
+  } catch (error) {
+    console.error("❌ Error migrating sessions table:", error);
+  }
+}
+
+migrateSessionsTable();
+
 // Инициализация таблиц
 db.exec(`
   -- Таблица для хранения Shopify sessions
@@ -43,21 +88,7 @@ export function repairDatabase() {
   try {
     console.log("🔧 Checking database integrity...");
     
-    // Сначала проверим структуру таблицы
-    const tableInfo = db
-      .prepare("PRAGMA table_info(sessions)")
-      .all() as any[];
-    
-    console.log("Sessions table columns:", tableInfo.map(col => col.name).join(", "));
-    
-    const hasDataColumn = tableInfo.some(col => col.name === "data");
-    if (!hasDataColumn) {
-      console.warn("⚠️ Sessions table doesn't have 'data' column!");
-      console.warn("   Columns:", tableInfo.map(col => `${col.name} (${col.type})`).join(", "));
-      return;
-    }
-    
-    // Удаляем сессии с поддельными данными
+    // После миграции таблица гарантированно имеет колонку data
     const badSessions = db
       .prepare(`SELECT id FROM sessions WHERE data IS NULL OR data = 'undefined' OR data = 'null'`)
       .all() as any[];
@@ -66,7 +97,7 @@ export function repairDatabase() {
       console.warn(`⚠️ Found ${badSessions.length} corrupted sessions, cleaning up...`);
       for (const session of badSessions) {
         db.prepare("DELETE FROM sessions WHERE id = ?").run(session.id);
-        console.log(`🗑️ Deleted corrupted session: ${session.id}`);
+        console.log(`   🗑️ Deleted corrupted session: ${session.id}`);
       }
     } else {
       console.log("✅ No corrupted sessions found");

@@ -13,6 +13,15 @@ import { repairDatabase } from "./db.js";
 const app = express();
 app.use(express.json());
 
+// Log ALL requests to see where things are going
+app.use((req: any, res: any, next: any) => {
+  console.error(`📍 REQUEST: ${req.method} ${req.path} ${req.url}`);
+  if (req.query && Object.keys(req.query).length > 0) {
+    console.error(`   Query: ${JSON.stringify(req.query)}`);
+  }
+  next();
+});
+
 // Initialize billing database
 initBillingDb();
 
