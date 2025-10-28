@@ -65,31 +65,43 @@ export const authRoutes = (app: any) => {
 
       // Explicitly save session - middleware might not do it automatically
       try {
-        // Save as offline session (for background jobs)
-        const offlineSessionId = `offline_${shopDomain}`;
+        // Save as both online and offline session
+        // Online: for user-initiated requests
+        // Offline: for background jobs and billing operations
         await sessionStorage.storeSession(session);
-        console.log(`✅ Session saved with ID: ${session.id}`);
 
-        // Verify session was saved
+        // Also explicitly store as offline session for billing
+        const offlineSession = {
+          ...session,
+          id: `offline_${shopDomain}`,
+        };
+        await sessionStorage.storeSession(offlineSession);
+
+        console.log(`✅ Session saved with ID: ${session.id}`);
+        console.log(`✅ Offline session saved with ID: offline_${shopDomain}`);
+
+        // Verify sessions were saved
         const verifySession = await sessionStorage.loadSession(session.id);
+        const verifyOfflineSession = await sessionStorage.loadSession(
+          `offline_${shopDomain}`
+        );
+
         if (verifySession) {
-          console.log(`✅ Session verified in storage:`, {
+          console.log(`✅ Online session verified:`, {
             shop: verifySession.shop,
             tokenLength: verifySession.accessToken?.length,
           });
         } else {
-          console.warn(
-            `⚠️ Session not found after save - trying alternate load...`
-          );
-          // Try loading with shop-based key
-          const altSession = await sessionStorage.loadSession(offlineSessionId);
-          if (altSession) {
-            console.log(
-              `✅ Found session with alternate key: ${offlineSessionId}`
-            );
-          } else {
-            console.error(`❌ Session not found with either key!`);
-          }
+          console.warn(`⚠️ Online session not verified`);
+        }
+
+        if (verifyOfflineSession) {
+          console.log(`✅ Offline session verified:`, {
+            shop: verifyOfflineSession.shop,
+            tokenLength: verifyOfflineSession.accessToken?.length,
+          });
+        } else {
+          console.warn(`⚠️ Offline session not verified`);
         }
       } catch (error) {
         console.error("❌ Failed to save session:", error);
