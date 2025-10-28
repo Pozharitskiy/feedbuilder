@@ -1,7 +1,8 @@
 import type { Request, Response } from "express";
 import { ShopifyClient } from "../services/shopifyClient.js";
 import { FeedBuilder } from "../services/feedBuilder.js";
-import { sessionStorage, feedCacheStorage } from "../db.js";
+import { feedCacheStorage } from "../db.js";
+import { sessionStorage } from "../shopify.js";
 import {
   FeedFormat,
   IMPLEMENTED_FORMATS,
@@ -31,10 +32,16 @@ export const feedRoutes = (app: any) => {
 
       console.log(`📦 Fetching products for shop: ${shop}`);
 
-      // Получить токен из БД
-      const session = sessionStorage.getSession(shop);
+      // Получить токен из Shopify sessionStorage
+      let session = await sessionStorage.loadSession(`offline_${shop}`);
+
       if (!session) {
-        console.log(`❌ Shop ${shop} not found in database`);
+        console.log(`⚠️ No offline session for ${shop}, trying online`);
+        session = await sessionStorage.loadSession(`online_${shop}`);
+      }
+
+      if (!session) {
+        console.log(`❌ Shop ${shop} not found in session storage`);
         return res.status(404).json({
           error: "Shop not found",
           message: "This shop has not installed the app yet",
@@ -44,7 +51,7 @@ export const feedRoutes = (app: any) => {
       console.log(`✅ Found session for ${shop}`);
 
       // Получить товары через Shopify API
-      const client = new ShopifyClient(session.shop, session.accessToken);
+      const client = new ShopifyClient(shop, session.accessToken!);
       const products = await client.getAllProducts();
 
       console.log(
@@ -97,7 +104,13 @@ export const feedRoutes = (app: any) => {
       }
 
       // Проверка что магазин установил приложение
-      const session = sessionStorage.getSession(shop);
+      let session = await sessionStorage.loadSession(`offline_${shop}`);
+
+      if (!session) {
+        console.log(`⚠️ No offline session for ${shop}, trying online`);
+        session = await sessionStorage.loadSession(`online_${shop}`);
+      }
+
       if (!session) {
         return res.status(404).json({
           error: "Shop not found",
@@ -114,7 +127,7 @@ export const feedRoutes = (app: any) => {
         });
       }
 
-      const client = new ShopifyClient(shop, session.accessToken);
+      const client = new ShopifyClient(shop, session.accessToken!);
       const products = await client.getAllProducts();
       const productsCount = products.length;
 

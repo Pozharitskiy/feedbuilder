@@ -1,12 +1,12 @@
 import "dotenv/config";
 import express from "express";
-import { shopify, ensureInstalled } from "./shopify.js";
+import { shopify, ensureInstalled, sessionStorage } from "./shopify.js";
 import { authRoutes } from "./routes/auth.js";
 import { feedRoutes } from "./routes/feed.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 import billingRoutes from "./routes/billing.js";
 import { feedUpdater } from "./services/feedUpdater.js";
-import { sessionStorage, feedCacheStorage } from "./db.js";
+import { feedCacheStorage } from "./db.js";
 import { initBillingDb, billingService } from "./services/billingService.js";
 
 const app = express();
@@ -34,41 +34,31 @@ app.get("/ping", (req, res) => {
 
 // Status endpoint (детальная информация)
 app.get("/status", (req, res) => {
-  const shops = sessionStorage.getAllShops();
-  const cacheStats: Record<string, any> = {};
+  try {
+    // Get revenue stats from billing service (uses subscriptions table)
+    const revenueStats = billingService.getRevenueStats();
 
-  shops.forEach((shop) => {
-    const feeds = feedCacheStorage.getAllCachedFeeds(shop);
-    cacheStats[shop] = {
-      cachedFeeds: feeds.length,
-      feeds: feeds.map((f) => ({
-        format: f.format,
-        productsCount: f.productsCount,
-        age: Math.round((Date.now() - f.createdAt) / 1000 / 60), // minutes
-      })),
-    };
-  });
-
-  // Get revenue stats
-  const revenueStats = billingService.getRevenueStats();
-
-  res.json({
-    status: "ok",
-    version: "1.0.0",
-    uptime: process.uptime(),
-    timestamp: Date.now(),
-    stats: {
-      shopsInstalled: shops.length,
-      shops: shops,
-      cache: cacheStats,
-    },
-    revenue: {
-      mrr: revenueStats.mrr,
-      arr: revenueStats.arr,
-      subscriptions: revenueStats.totalSubscriptions,
-      byPlan: revenueStats.byPlan,
-    },
-  });
+    res.json({
+      status: "ok",
+      version: "1.0.0",
+      uptime: process.uptime(),
+      timestamp: Date.now(),
+      revenue: {
+        mrr: revenueStats.mrr,
+        arr: revenueStats.arr,
+        subscriptions: revenueStats.totalSubscriptions,
+        byPlan: revenueStats.byPlan,
+      },
+    });
+  } catch (error) {
+    console.error("Error getting status:", error);
+    res.json({
+      status: "ok",
+      version: "1.0.0",
+      uptime: process.uptime(),
+      error: (error as any).message,
+    });
+  }
 });
 
 // Root endpoint

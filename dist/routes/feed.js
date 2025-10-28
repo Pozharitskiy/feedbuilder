@@ -1,6 +1,7 @@
 import { ShopifyClient } from "../services/shopifyClient.js";
 import { FeedBuilder } from "../services/feedBuilder.js";
-import { sessionStorage, feedCacheStorage } from "../db.js";
+import { feedCacheStorage } from "../db.js";
+import { sessionStorage } from "../shopify.js";
 import { IMPLEMENTED_FORMATS, isImplemented, FEED_CATEGORIES, } from "../types/feed.js";
 import { billingService } from "../services/billingService.js";
 import { isPlanAllowed, PLANS } from "../types/billing.js";
@@ -21,10 +22,14 @@ export const feedRoutes = (app) => {
             const { shop } = req.params;
             const limit = parseInt(req.query.limit) || 50;
             console.log(`📦 Fetching products for shop: ${shop}`);
-            // Получить токен из БД
-            const session = sessionStorage.getSession(shop);
+            // Получить токен из Shopify sessionStorage
+            let session = await sessionStorage.loadSession(`offline_${shop}`);
             if (!session) {
-                console.log(`❌ Shop ${shop} not found in database`);
+                console.log(`⚠️ No offline session for ${shop}, trying online`);
+                session = await sessionStorage.loadSession(`online_${shop}`);
+            }
+            if (!session) {
+                console.log(`❌ Shop ${shop} not found in session storage`);
                 return res.status(404).json({
                     error: "Shop not found",
                     message: "This shop has not installed the app yet",
@@ -32,7 +37,7 @@ export const feedRoutes = (app) => {
             }
             console.log(`✅ Found session for ${shop}`);
             // Получить товары через Shopify API
-            const client = new ShopifyClient(session.shop, session.accessToken);
+            const client = new ShopifyClient(shop, session.accessToken);
             const products = await client.getAllProducts();
             console.log(`✅ Successfully fetched ${products.length} products for ${shop}`);
             res.json({
@@ -71,7 +76,11 @@ export const feedRoutes = (app) => {
                 });
             }
             // Проверка что магазин установил приложение
-            const session = sessionStorage.getSession(shop);
+            let session = await sessionStorage.loadSession(`offline_${shop}`);
+            if (!session) {
+                console.log(`⚠️ No offline session for ${shop}, trying online`);
+                session = await sessionStorage.loadSession(`online_${shop}`);
+            }
             if (!session) {
                 return res.status(404).json({
                     error: "Shop not found",

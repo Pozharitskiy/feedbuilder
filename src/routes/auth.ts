@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
-import { shopify } from "../shopify.js";
-import { sessionStorage } from "../db.js";
+import { shopify, sessionStorage } from "../shopify.js";
 
 export const authRoutes = (app: any) => {
   // Используем middleware напрямую
@@ -31,14 +30,19 @@ export const authRoutes = (app: any) => {
     "/auth/callback",
     shopify.auth.callback(),
     async (req: Request, res: Response) => {
-      console.log("✅ Auth callback completed");
+      console.log("✅ Auth callback received");
+      console.log("📦 Callback request:", {
+        path: req.path,
+        query: req.query,
+      });
 
       // После того как middleware отработал, сессия доступна в res.locals
       const session = (res as any).locals?.shopify?.session;
 
       if (!session) {
-        console.error("❌ No session found after callback");
-        return res.status(500).send("No session found");
+        console.error("❌ No session found after callback middleware");
+        console.error("📦 res.locals:", (res as any).locals);
+        return res.status(500).send("No session found after OAuth");
       }
 
       const shopDomain = session.shop;
@@ -58,31 +62,24 @@ export const authRoutes = (app: any) => {
           JSON.stringify(expectedScopes.sort()),
       });
 
-      // Сохраняем в нашу БД для быстрого доступа
+      // Session уже сохранена middleware, но логируем для подтверждения
       try {
-        sessionStorage.saveSession({
-          id: session.id,
-          shop: shopDomain,
-          accessToken: accessToken,
-          scopes: session.scope || "",
-          isOnline: session.isOnline || false,
-          expiresAt: session.expires
-            ? new Date(session.expires).getTime()
-            : undefined,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        });
-
-        console.log(
-          "✅ Shop authorized and saved:",
-          shopDomain,
-          "| Scopes:",
-          session.scope
+        // Verify session was saved
+        const savedSession = await sessionStorage.loadSession(
+          `offline_${shopDomain}`
         );
+        if (savedSession) {
+          console.log(`✅ Session confirmed saved for ${shopDomain}`, {
+            tokenLength: savedSession.accessToken?.length,
+          });
+        } else {
+          console.warn(`⚠️ Session not found after save for ${shopDomain}`);
+        }
       } catch (error) {
-        console.error("❌ Failed to save session:", error);
+        console.error("❌ Failed to verify session:", error);
       }
 
+      console.log(`✅ Auth completed for ${shopDomain}, redirecting...`);
       res.redirect(`https://${shopDomain}/admin/apps`);
     }
   );
