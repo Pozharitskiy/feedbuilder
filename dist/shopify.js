@@ -24,13 +24,17 @@ export const sessionStorage = new SQLiteSessionStorage(dbPath);
         try {
             const db = new Database(dbPath);
             // Get all tables first
-            const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%session%'").all();
-            console.log(`🔍 Found session tables: ${tables.map(t => t.name).join(", ")}`);
+            const tables = db
+                .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%session%'")
+                .all();
+            console.log(`🔍 Found session tables: ${tables.map((t) => t.name).join(", ")}`);
             // Try different possible table names
             const possibleTables = ["shopify_sessions", "sessions"];
             for (const tableName of possibleTables) {
                 try {
-                    const sessions = db.prepare(`SELECT * FROM ${tableName}`).all();
+                    const sessions = db
+                        .prepare(`SELECT * FROM ${tableName}`)
+                        .all();
                     console.log(`📊 Found ${sessions.length} sessions in table '${tableName}'`);
                     if (shouldClearSessions) {
                         console.warn(`🗑️ CLEARING ALL SESSIONS (CLEAR_SESSIONS=true)`);

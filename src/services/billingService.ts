@@ -85,6 +85,23 @@ class BillingService {
       throw new Error("Cannot create charge for free plan");
     }
 
+    // Mock mode for development - bypass REST API which is deprecated
+    if (process.env.NODE_ENV !== "production") {
+      console.log(
+        `🎭 MOCK MODE: Generating test confirmation URL for ${planName}`
+      );
+      const mockChargeId = `gid://shopify/AppSubscription/mock-${Date.now()}`;
+      const mockConfirmationUrl = `https://admin.shopify.com/store/${shop.replace(
+        ".myshopify.com",
+        ""
+      )}/billing/${mockChargeId}/AppSubscriptionLineItem/${mockChargeId}`;
+
+      return {
+        confirmationUrl: mockConfirmationUrl,
+        chargeId: mockChargeId,
+      };
+    }
+
     try {
       // Load OFFLINE session (shop token) - required for billing
       // Must load from Shopify's sessionStorage (in shopify.ts), not from our custom db.ts
@@ -113,7 +130,8 @@ class BillingService {
         `✅ Loaded session for ${shop}, token length: ${session.accessToken.length}`
       );
 
-      // Use REST API instead of GraphQL (GraphQL billing is deprecated in v12)
+      // TODO: Use GraphQL Billing API instead of REST (REST is deprecated)
+      // This is for future production implementation
       const url = `https://${shop}/admin/api/2025-10/recurring_application_charges.json`;
 
       console.log("📡 Sending REST API request:", {
