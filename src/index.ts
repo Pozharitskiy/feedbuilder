@@ -19,6 +19,23 @@ app.use((req: any, res: any, next: any) => {
   if (req.query && Object.keys(req.query).length > 0) {
     console.error(`   Query: ${JSON.stringify(req.query)}`);
   }
+  
+  // Log responses
+  const originalSend = res.send;
+  res.send = function(data: any) {
+    console.error(`📤 RESPONSE: ${res.statusCode} ${req.method} ${req.path}`);
+    if (res.statusCode >= 300 && res.statusCode < 400) {
+      console.error(`   📍 Redirect to: ${res.getHeader("Location")}`);
+    }
+    return originalSend.call(this, data);
+  };
+  
+  const originalRedirect = res.redirect;
+  res.redirect = function(url: string) {
+    console.error(`🔴 REDIRECT: ${req.method} ${req.path} -> ${url}`);
+    return originalRedirect.call(this, url);
+  };
+  
   next();
 });
 

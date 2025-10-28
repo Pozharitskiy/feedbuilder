@@ -10,9 +10,7 @@ db.pragma("journal_mode = WAL");
 function migrateSessionsTable() {
     try {
         console.log("🔍 Checking sessions table structure...");
-        const tableInfo = db
-            .prepare("PRAGMA table_info(sessions)")
-            .all();
+        const tableInfo = db.prepare("PRAGMA table_info(sessions)").all();
         const columns = tableInfo.map((col) => col.name);
         const hasDataColumn = columns.includes("data");
         if (!hasDataColumn) {

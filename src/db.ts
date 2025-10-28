@@ -13,24 +13,22 @@ db.pragma("journal_mode = WAL");
 function migrateSessionsTable() {
   try {
     console.log("🔍 Checking sessions table structure...");
-    
-    const tableInfo = db
-      .prepare("PRAGMA table_info(sessions)")
-      .all() as any[];
-    
+
+    const tableInfo = db.prepare("PRAGMA table_info(sessions)").all() as any[];
+
     const columns = tableInfo.map((col) => col.name);
     const hasDataColumn = columns.includes("data");
-    
+
     if (!hasDataColumn) {
       console.warn(
         `⚠️ Sessions table has wrong structure! Columns: ${columns.join(", ")}`
       );
       console.log("🔄 Migrating sessions table...");
-      
+
       // Drop old table
       db.prepare("DROP TABLE IF EXISTS sessions").run();
       console.log("   Dropped old sessions table");
-      
+
       // Create new table with correct structure
       db.exec(`
         CREATE TABLE sessions (
@@ -42,7 +40,7 @@ function migrateSessionsTable() {
         );
         CREATE INDEX idx_sessions_shop ON sessions(shop);
       `);
-      
+
       console.log("   ✅ Created new sessions table with correct structure");
     } else {
       console.log("✅ Sessions table has correct structure");
@@ -87,14 +85,18 @@ console.log("✅ Database initialized:", dbPath);
 export function repairDatabase() {
   try {
     console.log("🔧 Checking database integrity...");
-    
+
     // После миграции таблица гарантированно имеет колонку data
     const badSessions = db
-      .prepare(`SELECT id FROM sessions WHERE data IS NULL OR data = 'undefined' OR data = 'null'`)
+      .prepare(
+        `SELECT id FROM sessions WHERE data IS NULL OR data = 'undefined' OR data = 'null'`
+      )
       .all() as any[];
-    
+
     if (badSessions.length > 0) {
-      console.warn(`⚠️ Found ${badSessions.length} corrupted sessions, cleaning up...`);
+      console.warn(
+        `⚠️ Found ${badSessions.length} corrupted sessions, cleaning up...`
+      );
       for (const session of badSessions) {
         db.prepare("DELETE FROM sessions WHERE id = ?").run(session.id);
         console.log(`   🗑️ Deleted corrupted session: ${session.id}`);
@@ -102,7 +104,7 @@ export function repairDatabase() {
     } else {
       console.log("✅ No corrupted sessions found");
     }
-    
+
     console.log("✅ Database repair completed");
   } catch (error) {
     console.error("❌ Error repairing database:", error);
