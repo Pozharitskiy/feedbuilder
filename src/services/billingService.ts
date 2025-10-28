@@ -139,19 +139,48 @@ class BillingService {
         }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        console.error("❌ Shopify REST API error:", error);
-        throw new Error(`Shopify billing error: ${JSON.stringify(error)}`);
+      // Try to parse response body as JSON
+      let data: any = null;
+      const contentType = response.headers.get("content-type");
+
+      try {
+        // Only attempt to parse as JSON if response has content and correct content type
+        const text = await response.text();
+        if (text && contentType?.includes("application/json")) {
+          data = JSON.parse(text);
+        } else if (!text) {
+          console.warn("⚠️ Response body is empty");
+        } else {
+          console.warn("⚠️ Response is not JSON:", contentType);
+        }
+      } catch (parseError: any) {
+        console.error("⚠️ Failed to parse response JSON:", parseError.message);
+        data = null;
       }
 
-      const data = await response.json();
-      console.log("📦 Billing API Response:", JSON.stringify(data, null, 2));
+      if (!response.ok) {
+        console.error("❌ Shopify REST API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          data,
+        });
+        throw new Error(
+          `Shopify API error (${response.status}): ${
+            data?.errors?.toString() || response.statusText
+          }`
+        );
+      }
+
+      if (!data?.recurring_application_charge) {
+        console.error("❌ Invalid response from Shopify:", data);
+        throw new Error(
+          `Invalid response from Shopify: ${
+            JSON.stringify(data) || "empty body"
+          }`
+        );
+      }
 
       const charge = data.recurring_application_charge;
-      if (!charge) {
-        throw new Error("No charge returned from API");
-      }
 
       console.log(
         `✅ Created subscription for ${shop}: ${charge.id} — waiting for confirmation`
