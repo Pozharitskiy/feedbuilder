@@ -36,80 +36,66 @@ export const authRoutes = (app: any) => {
         query: req.query,
       });
 
-      // После того как middleware отработал, сессия доступна в res.locals
-      const session = (res as any).locals?.shopify?.session;
+      // Debug - log everything in res.locals
+      console.log(
+        "🔍 res.locals keys:",
+        Object.keys((res as any).locals || {})
+      );
+      console.log(
+        "🔍 res.locals.shopify keys:",
+        Object.keys((res as any).locals?.shopify || {})
+      );
+
+      // After middleware, session should be in res.locals.shopify.session
+      let session = (res as any).locals?.shopify?.session;
+
+      console.log(
+        "📦 Session from middleware:",
+        session ? "FOUND" : "NOT FOUND"
+      );
+      console.log("📦 Session type:", typeof session);
+      console.log("📦 Session:", session);
 
       if (!session) {
         console.error("❌ No session found after callback middleware");
         console.error("📦 res.locals:", (res as any).locals);
-        return res.status(500).send("No session found after OAuth");
+        return res
+          .status(500)
+          .send(
+            `No session found after OAuth. res.locals keys: ${Object.keys(
+              (res as any).locals || {}
+            ).join(", ")}`
+          );
       }
 
       const shopDomain = session.shop;
       const accessToken = session.accessToken;
-      const expectedScopes = (process.env.SCOPES || "read_products").split(",");
-      const receivedScopes = (session.scope || "").split(",").filter(Boolean);
 
-      // Логирование для отладки
-      console.log("📦 New session from OAuth:", {
+      console.log("📦 Session details:", {
+        id: session.id,
         shop: shopDomain,
-        sessionId: session.id,
+        hasAccessToken: !!accessToken,
         tokenLength: accessToken?.length,
-        tokenPreview: accessToken?.substring(0, 10) + "...",
-        receivedScopes: receivedScopes,
-        expectedScopes: expectedScopes,
-        scopesMatch:
-          JSON.stringify(receivedScopes.sort()) ===
-          JSON.stringify(expectedScopes.sort()),
+        scope: session.scope,
       });
 
-      // Explicitly save session - middleware might not do it automatically
+      // Explicitly save session
       try {
-        // Save as both online and offline session
-        // Online: for user-initiated requests
-        // Offline: for background jobs and billing operations
-        await sessionStorage.storeSession(session);
+        console.log("1️⃣ Attempting to store session...");
+        const success = await sessionStorage.storeSession(session);
+        console.log("2️⃣ Store result:", success);
 
-        // Also explicitly store as offline session for billing
-        const offlineSession = {
-          ...session,
-          id: `offline_${shopDomain}`,
-        };
-        await sessionStorage.storeSession(offlineSession);
-
-        console.log(`✅ Session saved with ID: ${session.id}`);
-        console.log(`✅ Offline session saved with ID: offline_${shopDomain}`);
-
-        // Verify sessions were saved
-        const verifySession = await sessionStorage.loadSession(session.id);
-        const verifyOfflineSession = await sessionStorage.loadSession(
-          `offline_${shopDomain}`
-        );
-
-        if (verifySession) {
-          console.log(`✅ Online session verified:`, {
-            shop: verifySession.shop,
-            tokenLength: verifySession.accessToken?.length,
-          });
-        } else {
-          console.warn(`⚠️ Online session not verified`);
+        if (!success) {
+          console.error("❌ Failed to store session!");
+          return res.status(500).send("Failed to store session");
         }
 
-        if (verifyOfflineSession) {
-          console.log(`✅ Offline session verified:`, {
-            shop: verifyOfflineSession.shop,
-            tokenLength: verifyOfflineSession.accessToken?.length,
-          });
-        } else {
-          console.warn(`⚠️ Offline session not verified`);
-        }
+        console.log(`✅ Auth completed for ${shopDomain}, redirecting...`);
+        res.redirect(`https://${shopDomain}/admin/apps`);
       } catch (error) {
-        console.error("❌ Failed to save session:", error);
-        return res.status(500).send(`Failed to save session: ${error}`);
+        console.error("❌ Error in auth callback:", error);
+        return res.status(500).send(`Error: ${error}`);
       }
-
-      console.log(`✅ Auth completed for ${shopDomain}, redirecting...`);
-      res.redirect(`https://${shopDomain}/admin/apps`);
     }
   );
 };
