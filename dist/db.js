@@ -37,6 +37,17 @@ console.log("✅ Database initialized:", dbPath);
 export function repairDatabase() {
     try {
         console.log("🔧 Checking database integrity...");
+        // Сначала проверим структуру таблицы
+        const tableInfo = db
+            .prepare("PRAGMA table_info(sessions)")
+            .all();
+        console.log("Sessions table columns:", tableInfo.map(col => col.name).join(", "));
+        const hasDataColumn = tableInfo.some(col => col.name === "data");
+        if (!hasDataColumn) {
+            console.warn("⚠️ Sessions table doesn't have 'data' column!");
+            console.warn("   Columns:", tableInfo.map(col => `${col.name} (${col.type})`).join(", "));
+            return;
+        }
         // Удаляем сессии с поддельными данными
         const badSessions = db
             .prepare(`SELECT id FROM sessions WHERE data IS NULL OR data = 'undefined' OR data = 'null'`)
@@ -47,6 +58,9 @@ export function repairDatabase() {
                 db.prepare("DELETE FROM sessions WHERE id = ?").run(session.id);
                 console.log(`🗑️ Deleted corrupted session: ${session.id}`);
             }
+        }
+        else {
+            console.log("✅ No corrupted sessions found");
         }
         console.log("✅ Database repair completed");
     }

@@ -42,24 +42,36 @@ console.log("✅ Database initialized:", dbPath);
 export function repairDatabase() {
   try {
     console.log("🔧 Checking database integrity...");
-
+    
+    // Сначала проверим структуру таблицы
+    const tableInfo = db
+      .prepare("PRAGMA table_info(sessions)")
+      .all() as any[];
+    
+    console.log("Sessions table columns:", tableInfo.map(col => col.name).join(", "));
+    
+    const hasDataColumn = tableInfo.some(col => col.name === "data");
+    if (!hasDataColumn) {
+      console.warn("⚠️ Sessions table doesn't have 'data' column!");
+      console.warn("   Columns:", tableInfo.map(col => `${col.name} (${col.type})`).join(", "));
+      return;
+    }
+    
     // Удаляем сессии с поддельными данными
     const badSessions = db
-      .prepare(
-        `SELECT id FROM sessions WHERE data IS NULL OR data = 'undefined' OR data = 'null'`
-      )
+      .prepare(`SELECT id FROM sessions WHERE data IS NULL OR data = 'undefined' OR data = 'null'`)
       .all() as any[];
-
+    
     if (badSessions.length > 0) {
-      console.warn(
-        `⚠️ Found ${badSessions.length} corrupted sessions, cleaning up...`
-      );
+      console.warn(`⚠️ Found ${badSessions.length} corrupted sessions, cleaning up...`);
       for (const session of badSessions) {
         db.prepare("DELETE FROM sessions WHERE id = ?").run(session.id);
         console.log(`🗑️ Deleted corrupted session: ${session.id}`);
       }
+    } else {
+      console.log("✅ No corrupted sessions found");
     }
-
+    
     console.log("✅ Database repair completed");
   } catch (error) {
     console.error("❌ Error repairing database:", error);
@@ -110,12 +122,12 @@ export const customSessionStorage = {
     console.log("\n🚨🚨🚨 STORE SESSION CALLED 🚨🚨🚨");
     console.log("Session argument type:", typeof session);
     console.log("Session argument:", session);
-    
+
     try {
       console.log(
         `💾 Storing session: ${session.id} for shop: ${session.shop}`
       );
-      
+
       // Проверка что session объект валидный
       if (!session || !session.id || !session.shop) {
         console.error(`❌ Invalid session object:`, session);
