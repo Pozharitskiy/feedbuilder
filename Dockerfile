@@ -8,10 +8,10 @@ COPY . .
 
 RUN npm run build
 
-# Create data directory for persistent storage
-RUN mkdir -p /app/data
+# Data directory will be mounted as volume at /data
+# No need to create it here
 
 ENV PORT=8080
-ENV DATA_DIR=/app/data
+ENV DATA_DIR=/data
 EXPOSE 8080
 CMD ["node", "dist/index.js"]
