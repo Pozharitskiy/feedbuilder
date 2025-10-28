@@ -107,11 +107,15 @@ export const customSessionStorage = {
   },
 
   storeSession: async (session: any): Promise<boolean> => {
+    console.log("\n🚨🚨🚨 STORE SESSION CALLED 🚨🚨🚨");
+    console.log("Session argument type:", typeof session);
+    console.log("Session argument:", session);
+    
     try {
       console.log(
         `💾 Storing session: ${session.id} for shop: ${session.shop}`
       );
-
+      
       // Проверка что session объект валидный
       if (!session || !session.id || !session.shop) {
         console.error(`❌ Invalid session object:`, session);
@@ -126,6 +130,9 @@ export const customSessionStorage = {
         console.error(`❌ Failed to serialize session:`, serialized);
         return false;
       }
+
+      console.log("   Serialized length:", serialized.length);
+      console.log("   About to INSERT...");
 
       db.prepare(
         `
