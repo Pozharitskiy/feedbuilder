@@ -11,12 +11,8 @@ db.exec(`
   -- Таблица для хранения Shopify sessions
   CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
-    shop TEXT NOT NULL UNIQUE,
-    accessToken TEXT NOT NULL,
-    scopes TEXT NOT NULL,
-    isOnline INTEGER DEFAULT 0,
-    expiresAt INTEGER,
-    onlineAccessInfo TEXT,
+    shop TEXT NOT NULL,
+    data TEXT NOT NULL,
     createdAt INTEGER NOT NULL,
     updatedAt INTEGER NOT NULL
   );
@@ -37,35 +33,106 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_feed_cache_shop_format ON feed_cache(shop, format);
 `);
 console.log("✅ Database initialized:", dbPath);
-// Утилиты для работы с sessions
-export const sessionStorage = {
-    getSession: (shop) => {
-        const row = db
-            .prepare("SELECT * FROM sessions WHERE shop = ?")
-            .get(shop);
-        if (!row)
+// Simple custom session storage - just save raw session data
+export const customSessionStorage = {
+    loadSession: async (sessionId) => {
+        try {
+            console.log(`📦 Loading session: ${sessionId}`);
+            const row = db
+                .prepare("SELECT * FROM sessions WHERE id = ?")
+                .get(sessionId);
+            if (!row) {
+                console.warn(`⚠️ Session not found: ${sessionId}`);
+                return null;
+            }
+            const sessionData = JSON.parse(row.data);
+            console.log(`✅ Session loaded: ${sessionId} for shop ${sessionData.shop}`);
+            return sessionData;
+        }
+        catch (error) {
+            console.error(`❌ Error loading session ${sessionId}:`, error);
             return null;
-        return {
-            ...row,
-            isOnline: row.isOnline === 1,
-        };
+        }
     },
-    saveSession: (session) => {
-        const now = Date.now();
-        db.prepare(`
-      INSERT OR REPLACE INTO sessions
-      (id, shop, accessToken, scopes, isOnline, expiresAt, onlineAccessInfo, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(session.id || `offline_${session.shop}`, session.shop, session.accessToken, session.scopes || "", session.isOnline ? 1 : 0, session.expiresAt || null, session.onlineAccessInfo || null, session.createdAt || now, now);
+    storeSession: async (session) => {
+        try {
+            console.log(`💾 Storing session: ${session.id} for shop: ${session.shop}`);
+            const now = Date.now();
+            db.prepare(`
+        INSERT OR REPLACE INTO sessions
+        (id, shop, data, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(session.id, session.shop, JSON.stringify(session), now, now);
+            console.log(`✅ Session stored: ${session.id}`);
+            // Verify immediately
+            const verify = await customSessionStorage.loadSession(session.id);
+            if (verify) {
+                console.log(`✅ Session verified in DB: ${session.id}`);
+                return true;
+            }
+            else {
+                console.error(`❌ Session verification FAILED: ${session.id}`);
+                return false;
+            }
+        }
+        catch (error) {
+            console.error(`❌ Failed to store session:`, error);
+            return false;
+        }
     },
-    deleteSession: (shop) => {
-        db.prepare("DELETE FROM sessions WHERE shop = ?").run(shop);
+    deleteSession: async (sessionId) => {
+        try {
+            console.log(`🗑️ Deleting session: ${sessionId}`);
+            db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
+            console.log(`✅ Session deleted: ${sessionId}`);
+            return true;
+        }
+        catch (error) {
+            console.error(`❌ Failed to delete session:`, error);
+            return false;
+        }
     },
-    getAllShops: () => {
-        const rows = db
-            .prepare("SELECT DISTINCT shop FROM sessions")
-            .all();
-        return rows.map((row) => row.shop);
+    findSessions: async (shopIds) => {
+        try {
+            if (shopIds.length === 0) {
+                const rows = db.prepare("SELECT data FROM sessions").all();
+                return rows.map(row => JSON.parse(row.data));
+            }
+            const placeholders = shopIds.map(() => "?").join(",");
+            const rows = db
+                .prepare(`SELECT data FROM sessions WHERE shop IN (${placeholders})`)
+                .all(...shopIds);
+            return rows.map(row => JSON.parse(row.data));
+        }
+        catch (error) {
+            console.error("❌ Error finding sessions:", error);
+            return [];
+        }
+    },
+    deleteSessions: async (sessionIds) => {
+        try {
+            for (const id of sessionIds) {
+                db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
+            }
+            console.log(`✅ Deleted ${sessionIds.length} sessions`);
+            return true;
+        }
+        catch (error) {
+            console.error(`❌ Failed to delete sessions:`, error);
+            return false;
+        }
+    },
+    findSessionsByShop: async (shop) => {
+        try {
+            const rows = db
+                .prepare("SELECT data FROM sessions WHERE shop = ?")
+                .all(shop);
+            return rows.map(row => JSON.parse(row.data));
+        }
+        catch (error) {
+            console.error("❌ Error finding sessions by shop:", error);
+            return [];
+        }
     },
 };
 // Утилиты для работы с feed cache
