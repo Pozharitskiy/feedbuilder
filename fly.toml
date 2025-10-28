@@ -7,7 +7,7 @@ primary_region = "ams"
 # Mount persistent volume for database
 [mounts]
   source = "feedbuilder_data"
-  destination = "/app/data"
+  destination = "/data"
 
 [http_service]
   internal_port = 8080

@@ -14,6 +14,16 @@ const dataDir = process.env.DATA_DIR || process.cwd();
 const dbPath = path.join(dataDir, "feedbuilder.db");
 export const sessionStorage = new SQLiteSessionStorage(dbPath);
 
+// Initialize session storage tables (async IIFE)
+(async () => {
+  try {
+    await sessionStorage.ready;
+    console.log("✅ Session storage initialized");
+  } catch (error) {
+    console.error("❌ Failed to initialize session storage:", error);
+  }
+})();
+
 console.log("🔧 Shopify config:", {
   appUrl,
   hostName,
