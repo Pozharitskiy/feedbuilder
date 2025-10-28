@@ -5,6 +5,12 @@ export const authRoutes = (app: any) => {
   // Используем middleware напрямую
   app.get("/auth", shopify.auth.begin());
 
+  // Debug: Log all /auth/* requests
+  app.use("/auth", (req: Request, res: Response, next: any) => {
+    console.log(`🔵 /auth route hit: ${req.method} ${req.path}`);
+    next();
+  });
+
   // Endpoint для удаления сессии и регенерации токена
   app.get("/auth/logout", async (req: Request, res: Response) => {
     const shop = req.query.shop as string;
@@ -26,11 +32,21 @@ export const authRoutes = (app: any) => {
     }
   });
 
+  // Auth callback
+  console.log("📍 Registering /auth/callback route");
   app.get(
     "/auth/callback",
+    (req: Request, res: Response, next: any) => {
+      console.log("🔴 BEFORE shopify.auth.callback() middleware");
+      next();
+    },
     shopify.auth.callback(),
+    (req: Request, res: Response, next: any) => {
+      console.log("🟢 AFTER shopify.auth.callback() middleware");
+      next();
+    },
     async (req: Request, res: Response) => {
-      console.log("✅ Auth callback received");
+      console.log("✅ Auth callback handler START");
       console.log("📦 Callback request:", {
         path: req.path,
         query: req.query,

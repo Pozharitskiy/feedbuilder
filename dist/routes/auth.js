@@ -2,6 +2,11 @@ import { shopify, sessionStorage } from "../shopify.js";
 export const authRoutes = (app) => {
     // Используем middleware напрямую
     app.get("/auth", shopify.auth.begin());
+    // Debug: Log all /auth/* requests
+    app.use("/auth", (req, res, next) => {
+        console.log(`🔵 /auth route hit: ${req.method} ${req.path}`);
+        next();
+    });
     // Endpoint для удаления сессии и регенерации токена
     app.get("/auth/logout", async (req, res) => {
         const shop = req.query.shop;
@@ -20,8 +25,16 @@ export const authRoutes = (app) => {
             res.status(500).send(`Error: ${error}`);
         }
     });
-    app.get("/auth/callback", shopify.auth.callback(), async (req, res) => {
-        console.log("✅ Auth callback received");
+    // Auth callback
+    console.log("📍 Registering /auth/callback route");
+    app.get("/auth/callback", (req, res, next) => {
+        console.log("🔴 BEFORE shopify.auth.callback() middleware");
+        next();
+    }, shopify.auth.callback(), (req, res, next) => {
+        console.log("🟢 AFTER shopify.auth.callback() middleware");
+        next();
+    }, async (req, res) => {
+        console.log("✅ Auth callback handler START");
         console.log("📦 Callback request:", {
             path: req.path,
             query: req.query,
