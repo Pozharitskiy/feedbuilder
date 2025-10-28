@@ -8,7 +8,7 @@ const shopifyApiInstance = shopifyApi({
   apiSecretKey: process.env.SHOPIFY_API_SECRET!,
   scopes: (process.env.SCOPES || "read_products").split(","),
   hostName: new URL(process.env.APP_URL!).hostname,
-  apiVersion: ApiVersion.October24,
+  apiVersion: ApiVersion.October25,
   isEmbeddedApp: false,
 });
 

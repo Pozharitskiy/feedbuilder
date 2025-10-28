@@ -1,6 +1,7 @@
 import cron from "node-cron";
-import { sessionStorage, feedCacheStorage } from "../db.js";
+import { feedCacheStorage } from "../db.js";
 import { FeedBuilder } from "./feedBuilder.js";
+import { billingService } from "./billingService.js";
 import { FeedFormat } from "../types/feed.js";
 
 /**
@@ -41,7 +42,7 @@ export class FeedUpdater {
     console.log("🔄 Starting scheduled feed update job");
 
     try {
-      const shops = sessionStorage.getAllShops();
+      const shops = billingService.getSubscribedShops();
       const formats: FeedFormat[] = [
         "google-shopping",
         "yandex-yml",

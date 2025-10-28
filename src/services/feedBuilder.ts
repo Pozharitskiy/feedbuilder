@@ -1,6 +1,6 @@
 import { create } from "xmlbuilder2";
 import { ShopifyClient } from "./shopifyClient.js";
-import { sessionStorage } from "../db.js";
+import { sessionStorage } from "../shopify.js";
 import { FeedConfig, FeedGenerationResult } from "../types/feed.js";
 import { ShopifyProduct } from "../types/shopify.js";
 
@@ -409,12 +409,21 @@ export class FeedBuilder {
   }
 
   private async getProducts(): Promise<ShopifyProduct[]> {
-    const session = sessionStorage.getSession(this.config.shop);
+    // Load offline session first (used for background jobs)
+    let session = await sessionStorage.loadSession(
+      `offline_${this.config.shop}`
+    );
+
+    // Fallback to online session if offline not found
     if (!session) {
-      throw new Error(`Shop ${this.config.shop} not found in database`);
+      session = await sessionStorage.loadSession(`online_${this.config.shop}`);
     }
 
-    const client = new ShopifyClient(session.shop, session.accessToken);
+    if (!session) {
+      throw new Error(`Shop ${this.config.shop} not found in session storage`);
+    }
+
+    const client = new ShopifyClient(this.config.shop, session.accessToken!);
     return await client.getAllProducts();
   }
 

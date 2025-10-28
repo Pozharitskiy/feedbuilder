@@ -251,6 +251,19 @@ class BillingService {
     return subscription.status === "active" || subscription.status === "trial";
   }
 
+  // Get all shops with active subscriptions
+  getSubscribedShops(): string[] {
+    const rows = db
+      .prepare(
+        `
+      SELECT DISTINCT shop FROM subscriptions WHERE status IN ('active', 'trial')
+    `
+      )
+      .all() as any[];
+
+    return rows.map((row) => row.shop);
+  }
+
   // Get all active subscriptions (for stats)
   getActiveSubscriptions(): Subscription[] {
     const rows = db

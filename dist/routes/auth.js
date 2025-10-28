@@ -40,6 +40,7 @@ export const authRoutes = (app) => {
         // Логирование для отладки
         console.log("📦 New session from OAuth:", {
             shop: shopDomain,
+            sessionId: session.id,
             tokenLength: accessToken?.length,
             tokenPreview: accessToken?.substring(0, 10) + "...",
             receivedScopes: receivedScopes,
@@ -47,21 +48,35 @@ export const authRoutes = (app) => {
             scopesMatch: JSON.stringify(receivedScopes.sort()) ===
                 JSON.stringify(expectedScopes.sort()),
         });
-        // Session уже сохранена middleware, но логируем для подтверждения
+        // Explicitly save session - middleware might not do it automatically
         try {
+            // Save as offline session (for background jobs)
+            const offlineSessionId = `offline_${shopDomain}`;
+            await sessionStorage.storeSession(session);
+            console.log(`✅ Session saved with ID: ${session.id}`);
             // Verify session was saved
-            const savedSession = await sessionStorage.loadSession(`offline_${shopDomain}`);
-            if (savedSession) {
-                console.log(`✅ Session confirmed saved for ${shopDomain}`, {
-                    tokenLength: savedSession.accessToken?.length,
+            const verifySession = await sessionStorage.loadSession(session.id);
+            if (verifySession) {
+                console.log(`✅ Session verified in storage:`, {
+                    shop: verifySession.shop,
+                    tokenLength: verifySession.accessToken?.length,
                 });
             }
             else {
-                console.warn(`⚠️ Session not found after save for ${shopDomain}`);
+                console.warn(`⚠️ Session not found after save - trying alternate load...`);
+                // Try loading with shop-based key
+                const altSession = await sessionStorage.loadSession(offlineSessionId);
+                if (altSession) {
+                    console.log(`✅ Found session with alternate key: ${offlineSessionId}`);
+                }
+                else {
+                    console.error(`❌ Session not found with either key!`);
+                }
             }
         }
         catch (error) {
-            console.error("❌ Failed to verify session:", error);
+            console.error("❌ Failed to save session:", error);
+            return res.status(500).send(`Failed to save session: ${error}`);
         }
         console.log(`✅ Auth completed for ${shopDomain}, redirecting...`);
         res.redirect(`https://${shopDomain}/admin/apps`);
