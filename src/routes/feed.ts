@@ -119,7 +119,7 @@ export const feedRoutes = (app: any) => {
       }
 
       // 💰 BILLING: Check subscription and plan limits
-      const subscription = billingService.getSubscription(shop);
+      const subscription = await billingService.getSubscription(shop);
       if (!subscription) {
         return res.status(404).json({
           error: "Subscription not found",
@@ -153,11 +153,12 @@ export const feedRoutes = (app: any) => {
 
       // Проверяем кэш (если не force refresh)
       if (!forceRefresh) {
-        const cached = feedCacheStorage.getCache(shop, format);
+        const cached = await feedCacheStorage.getCache(shop, format);
         if (cached) {
+          const cacheAge = Date.now() - new Date(cached.created_at).getTime();
           console.log(
             `✅ Serving cached ${format} feed for ${shop} (age: ${Math.round(
-              (Date.now() - cached.createdAt) / 1000 / 60
+              cacheAge / 1000 / 60
             )} min)`
           );
 
@@ -171,9 +172,9 @@ export const feedRoutes = (app: any) => {
 
           res.set({
             "Cache-Control": "public, max-age=21600", // 6 hours
-            "X-Products-Count": cached.productsCount.toString(),
+            "X-Products-Count": cached.products_count.toString(),
             "X-Cache": "HIT",
-            "X-Generated-At": new Date(cached.createdAt).toISOString(),
+            "X-Generated-At": new Date(cached.created_at).toISOString(),
           });
 
           return res.send(cached.content);
@@ -196,7 +197,7 @@ export const feedRoutes = (app: any) => {
       const result = await builder.build();
 
       // Сохраняем в кэш
-      feedCacheStorage.saveCache(
+      await feedCacheStorage.saveCache(
         shop,
         format,
         result.content,

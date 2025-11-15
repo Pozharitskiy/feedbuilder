@@ -7,7 +7,7 @@ export const webhookRoutes = (app: any) => {
    * Shopify Webhooks handler
    * Автоматически инвалидирует кэш при изменении товаров
    */
-  app.post("/webhooks", (req: Request, res: Response) => {
+  app.post("/webhooks", async (req: Request, res: Response) => {
     try {
       const shop = req.header("X-Shopify-Shop-Domain");
       const topic = req.header("X-Shopify-Topic");
@@ -28,7 +28,7 @@ export const webhookRoutes = (app: any) => {
 
       if (topic && productTopics.some((t) => topic.includes(t))) {
         console.log(`🗑️ Invalidating cache for ${shop} (${topic})`);
-        feedCacheStorage.invalidateCache(shop);
+        await feedCacheStorage.invalidateCache(shop);
       }
 
       res.sendStatus(200);
@@ -48,7 +48,7 @@ export const webhookRoutes = (app: any) => {
       console.log(`🔄 Manual feed regeneration requested for ${shop}`);
 
       // Инвалидируем старый кэш
-      feedCacheStorage.invalidateCache(shop);
+      await feedCacheStorage.invalidateCache(shop);
 
       // Запускаем фоновое обновление
       feedUpdater.updateAllFeeds().catch((err) => {
@@ -71,10 +71,10 @@ export const webhookRoutes = (app: any) => {
   /**
    * Получить информацию о фидах магазина
    */
-  app.get("/api/feed-info/:shop", (req: Request, res: Response) => {
+  app.get("/api/feed-info/:shop", async (req: Request, res: Response) => {
     try {
       const { shop } = req.params;
-      const feeds = feedCacheStorage.getAllCachedFeeds(shop);
+      const feeds = await feedCacheStorage.getAllCachedFeeds(shop);
 
       const feedUrls = ["google-shopping", "yandex-yml", "facebook"].map(
         (format) => ({
@@ -84,7 +84,7 @@ export const webhookRoutes = (app: any) => {
           age: feeds.find((f) => f.format === format)
             ? Math.round(
                 (Date.now() -
-                  feeds.find((f) => f.format === format)!.createdAt) /
+                  new Date(feeds.find((f) => f.format === format)!.created_at).getTime()) /
                   1000 /
                   60
               )

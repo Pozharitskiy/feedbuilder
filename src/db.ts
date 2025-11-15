@@ -1,113 +1,50 @@
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-// Use persistent data directory if mounted, otherwise fallback to cwd
-const dataDir = process.env.DATA_DIR || process.cwd();
-const dbPath = path.join(dataDir, "feedbuilder.db");
-export const db = new Database(dbPath);
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
 
-// Включаем WAL mode для лучшей производительности
-db.pragma("journal_mode = WAL");
-
-// Проверим и пересоздадим таблицу если нужно
-function migrateSessionsTable() {
-  try {
-    console.log("🔍 Checking sessions table structure...");
-
-    const tableInfo = db.prepare("PRAGMA table_info(sessions)").all() as any[];
-
-    const columns = tableInfo.map((col) => col.name);
-    const hasDataColumn = columns.includes("data");
-
-    if (!hasDataColumn) {
-      console.warn(
-        `⚠️ Sessions table has wrong structure! Columns: ${columns.join(", ")}`
-      );
-      console.log("🔄 Migrating sessions table...");
-
-      // Drop old table
-      db.prepare("DROP TABLE IF EXISTS sessions").run();
-      console.log("   Dropped old sessions table");
-
-      // Create new table with correct structure
-      db.exec(`
-        CREATE TABLE sessions (
-          id TEXT PRIMARY KEY,
-          shop TEXT NOT NULL,
-          data TEXT NOT NULL,
-          createdAt INTEGER NOT NULL,
-          updatedAt INTEGER NOT NULL
-        );
-        CREATE INDEX idx_sessions_shop ON sessions(shop);
-      `);
-
-      console.log("   ✅ Created new sessions table with correct structure");
-    } else {
-      console.log("✅ Sessions table has correct structure");
-    }
-  } catch (error) {
-    console.error("❌ Error migrating sessions table:", error);
-  }
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    "Missing SUPABASE_URL or SUPABASE_KEY environment variables"
+  );
 }
 
-migrateSessionsTable();
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
 
-// Инициализация таблиц
-db.exec(`
-  -- Таблица для хранения Shopify sessions
-  CREATE TABLE IF NOT EXISTS sessions (
-    id TEXT PRIMARY KEY,
-    shop TEXT NOT NULL,
-    data TEXT NOT NULL,
-    createdAt INTEGER NOT NULL,
-    updatedAt INTEGER NOT NULL
-  );
+console.log("✅ Supabase client initialized:", {
+  url: supabaseUrl,
+  hasKey: !!supabaseKey,
+});
 
-  CREATE INDEX IF NOT EXISTS idx_sessions_shop ON sessions(shop);
-
-  -- Таблица для кэширования фидов
-  CREATE TABLE IF NOT EXISTS feed_cache (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    shop TEXT NOT NULL,
-    format TEXT NOT NULL,
-    content TEXT NOT NULL,
-    productsCount INTEGER DEFAULT 0,
-    createdAt INTEGER NOT NULL,
-    UNIQUE(shop, format)
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_feed_cache_shop_format ON feed_cache(shop, format);
-`);
-
-console.log("✅ Database initialized:", dbPath);
-
-// Функция для очистки и восстановления БД от поддельных данных
-export function repairDatabase() {
+// Initialize database tables
+export async function initDatabase() {
   try {
-    console.log("🔧 Checking database integrity...");
+    console.log("🔍 Checking database tables...");
 
-    // После миграции таблица гарантированно имеет колонку data
-    const badSessions = db
-      .prepare(
-        `SELECT id FROM sessions WHERE data IS NULL OR data = 'undefined' OR data = 'null'`
-      )
-      .all() as any[];
-
-    if (badSessions.length > 0) {
-      console.warn(
-        `⚠️ Found ${badSessions.length} corrupted sessions, cleaning up...`
-      );
-      for (const session of badSessions) {
-        db.prepare("DELETE FROM sessions WHERE id = ?").run(session.id);
-        console.log(`   🗑️ Deleted corrupted session: ${session.id}`);
-      }
-    } else {
-      console.log("✅ No corrupted sessions found");
+    // Create sessions table
+    const { error: sessionsError } = await supabase.rpc("create_sessions_table");
+    if (sessionsError && !sessionsError.message.includes("already exists")) {
+      console.warn("⚠️ Sessions table check:", sessionsError.message);
     }
 
-    console.log("✅ Database repair completed");
+    // Create feed_cache table
+    const { error: feedError } = await supabase.rpc("create_feed_cache_table");
+    if (feedError && !feedError.message.includes("already exists")) {
+      console.warn("⚠️ Feed cache table check:", feedError.message);
+    }
+
+    // Create subscriptions table
+    const { error: subsError } = await supabase.rpc(
+      "create_subscriptions_table"
+    );
+    if (subsError && !subsError.message.includes("already exists")) {
+      console.warn("⚠️ Subscriptions table check:", subsError.message);
+    }
+
+    console.log("✅ Database tables initialized");
   } catch (error) {
-    console.error("❌ Error repairing database:", error);
+    console.error("❌ Error initializing database:", error);
   }
 }
 
@@ -116,31 +53,40 @@ export interface FeedCache {
   shop: string;
   format: string;
   content: string;
-  productsCount: number;
-  createdAt: number;
+  products_count: number;
+  created_at: string;
 }
 
-// Simple custom session storage - just save raw session data
+// Custom session storage for Shopify
 export const customSessionStorage = {
   loadSession: async (sessionId: string): Promise<any | null> => {
     try {
       console.log(`📦 Loading session: ${sessionId}`);
-      const row = db
-        .prepare("SELECT * FROM sessions WHERE id = ?")
-        .get(sessionId) as any;
 
-      if (!row) {
-        console.warn(`⚠️ Session not found: ${sessionId}`);
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("*")
+        .eq("id", sessionId)
+        .single();
+
+      if (error) {
+        if (error.code === "PGRST116") {
+          // Not found
+          console.warn(`⚠️ Session not found: ${sessionId}`);
+          return null;
+        }
+        console.error(`❌ Error loading session ${sessionId}:`, error);
         return null;
       }
 
-      // Защита от сохранённого "undefined" или null
-      if (!row.data || row.data === "undefined" || row.data === "null") {
-        console.warn(`⚠️ Invalid session data for ${sessionId}: ${row.data}`);
+      if (!data || !data.data) {
+        console.warn(`⚠️ Invalid session data for ${sessionId}`);
         return null;
       }
 
-      const sessionData = JSON.parse(row.data);
+      const sessionData =
+        typeof data.data === "string" ? JSON.parse(data.data) : data.data;
+
       console.log(
         `✅ Session loaded: ${sessionId} for shop ${sessionData.shop}`
       );
@@ -152,44 +98,37 @@ export const customSessionStorage = {
   },
 
   storeSession: async (session: any): Promise<boolean> => {
-    console.log("\n🚨🚨🚨 STORE SESSION CALLED 🚨🚨🚨");
-    console.log("Session argument type:", typeof session);
-    console.log("Session argument:", session);
-
     try {
       console.log(
         `💾 Storing session: ${session.id} for shop: ${session.shop}`
       );
 
-      // Проверка что session объект валидный
       if (!session || !session.id || !session.shop) {
         console.error(`❌ Invalid session object:`, session);
         return false;
       }
 
-      const now = Date.now();
-      const serialized = JSON.stringify(session);
+      const sessionData =
+        typeof session === "string" ? session : JSON.stringify(session);
 
-      // Проверка что сериализация прошла успешно
-      if (!serialized || serialized === "undefined") {
-        console.error(`❌ Failed to serialize session:`, serialized);
+      const { error } = await supabase.from("sessions").upsert(
+        {
+          id: session.id,
+          shop: session.shop,
+          data: sessionData,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
+
+      if (error) {
+        console.error(`❌ Failed to store session:`, error);
         return false;
       }
 
-      console.log("   Serialized length:", serialized.length);
-      console.log("   About to INSERT...");
-
-      db.prepare(
-        `
-        INSERT OR REPLACE INTO sessions
-        (id, shop, data, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?)
-      `
-      ).run(session.id, session.shop, serialized, now, now);
-
       console.log(`✅ Session stored: ${session.id}`);
 
-      // Verify immediately
+      // Verify
       const verify = await customSessionStorage.loadSession(session.id);
       if (verify) {
         console.log(`✅ Session verified in DB: ${session.id}`);
@@ -207,7 +146,17 @@ export const customSessionStorage = {
   deleteSession: async (sessionId: string): Promise<boolean> => {
     try {
       console.log(`🗑️ Deleting session: ${sessionId}`);
-      db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
+
+      const { error } = await supabase
+        .from("sessions")
+        .delete()
+        .eq("id", sessionId);
+
+      if (error) {
+        console.error(`❌ Failed to delete session:`, error);
+        return false;
+      }
+
       console.log(`✅ Session deleted: ${sessionId}`);
       return true;
     } catch (error) {
@@ -218,27 +167,26 @@ export const customSessionStorage = {
 
   findSessions: async (shopIds: string[]): Promise<any[]> => {
     try {
-      if (shopIds.length === 0) {
-        const rows = db.prepare("SELECT data FROM sessions").all() as any[];
-        return rows
-          .filter(
-            (row) => row.data && row.data !== "undefined" && row.data !== "null"
-          )
-          .map((row) => JSON.parse(row.data))
-          .filter(Boolean);
+      let query = supabase.from("sessions").select("data");
+
+      if (shopIds.length > 0) {
+        query = query.in("shop", shopIds);
       }
 
-      const placeholders = shopIds.map(() => "?").join(",");
-      const rows = db
-        .prepare(`SELECT data FROM sessions WHERE shop IN (${placeholders})`)
-        .all(...shopIds) as any[];
+      const { data, error } = await query;
 
-      return rows
-        .filter(
-          (row) => row.data && row.data !== "undefined" && row.data !== "null"
-        )
-        .map((row) => JSON.parse(row.data))
-        .filter(Boolean);
+      if (error) {
+        console.error("❌ Error finding sessions:", error);
+        return [];
+      }
+
+      return (
+        data
+          ?.map((row: any) =>
+            typeof row.data === "string" ? JSON.parse(row.data) : row.data
+          )
+          .filter(Boolean) || []
+      );
     } catch (error) {
       console.error("❌ Error finding sessions:", error);
       return [];
@@ -247,9 +195,16 @@ export const customSessionStorage = {
 
   deleteSessions: async (sessionIds: string[]): Promise<boolean> => {
     try {
-      for (const id of sessionIds) {
-        db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
+      const { error } = await supabase
+        .from("sessions")
+        .delete()
+        .in("id", sessionIds);
+
+      if (error) {
+        console.error(`❌ Failed to delete sessions:`, error);
+        return false;
       }
+
       console.log(`✅ Deleted ${sessionIds.length} sessions`);
       return true;
     } catch (error) {
@@ -260,16 +215,23 @@ export const customSessionStorage = {
 
   findSessionsByShop: async (shop: string): Promise<any[]> => {
     try {
-      const rows = db
-        .prepare("SELECT data FROM sessions WHERE shop = ?")
-        .all(shop) as any[];
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("data")
+        .eq("shop", shop);
 
-      return rows
-        .filter(
-          (row) => row.data && row.data !== "undefined" && row.data !== "null"
-        )
-        .map((row) => JSON.parse(row.data))
-        .filter(Boolean);
+      if (error) {
+        console.error("❌ Error finding sessions by shop:", error);
+        return [];
+      }
+
+      return (
+        data
+          ?.map((row: any) =>
+            typeof row.data === "string" ? JSON.parse(row.data) : row.data
+          )
+          .filter(Boolean) || []
+      );
     } catch (error) {
       console.error("❌ Error finding sessions by shop:", error);
       return [];
@@ -277,49 +239,79 @@ export const customSessionStorage = {
   },
 };
 
-// Утилиты для работы с feed cache
+// Feed cache storage utilities
 export const feedCacheStorage = {
-  getCache: (
+  getCache: async (
     shop: string,
     format: string,
     maxAge: number = 6 * 60 * 60 * 1000
-  ): FeedCache | null => {
-    const row = db
-      .prepare(
-        `
-        SELECT * FROM feed_cache
-        WHERE shop = ? AND format = ? AND createdAt > ?
-      `
-      )
-      .get(shop, format, Date.now() - maxAge) as any;
+  ): Promise<FeedCache | null> => {
+    const maxAgeDate = new Date(Date.now() - maxAge).toISOString();
 
-    return row || null;
+    const { data, error } = await supabase
+      .from("feed_cache")
+      .select("*")
+      .eq("shop", shop)
+      .eq("format", format)
+      .gt("created_at", maxAgeDate)
+      .single();
+
+    if (error) {
+      if (error.code === "PGRST116") {
+        // Not found
+        return null;
+      }
+      console.error("Error getting cache:", error);
+      return null;
+    }
+
+    return data as FeedCache;
   },
 
-  saveCache: (
+  saveCache: async (
     shop: string,
     format: string,
     content: string,
     productsCount: number
-  ) => {
-    db.prepare(
-      `
-      INSERT OR REPLACE INTO feed_cache (shop, format, content, productsCount, createdAt)
-      VALUES (?, ?, ?, ?, ?)
-    `
-    ).run(shop, format, content, productsCount, Date.now());
+  ): Promise<void> => {
+    const { error } = await supabase.from("feed_cache").upsert(
+      {
+        shop,
+        format,
+        content,
+        products_count: productsCount,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: "shop,format" }
+    );
+
+    if (error) {
+      console.error("Error saving cache:", error);
+    }
   },
 
-  invalidateCache: (shop: string) => {
-    db.prepare("DELETE FROM feed_cache WHERE shop = ?").run(shop);
-    console.log(`🗑️ Invalidated feed cache for ${shop}`);
+  invalidateCache: async (shop: string): Promise<void> => {
+    const { error } = await supabase.from("feed_cache").delete().eq("shop", shop);
+
+    if (error) {
+      console.error("Error invalidating cache:", error);
+    } else {
+      console.log(`🗑️ Invalidated feed cache for ${shop}`);
+    }
   },
 
-  getAllCachedFeeds: (shop: string): FeedCache[] => {
-    return db
-      .prepare(
-        "SELECT * FROM feed_cache WHERE shop = ? ORDER BY createdAt DESC"
-      )
-      .all(shop) as FeedCache[];
+  getAllCachedFeeds: async (shop: string): Promise<FeedCache[]> => {
+    const { data, error } = await supabase
+      .from("feed_cache")
+      .select("*")
+      .eq("shop", shop)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error getting cached feeds:", error);
+      return [];
+    }
+
+    return (data as FeedCache[]) || [];
   },
 };

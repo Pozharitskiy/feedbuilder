@@ -5,7 +5,7 @@ export const webhookRoutes = (app) => {
      * Shopify Webhooks handler
      * Автоматически инвалидирует кэш при изменении товаров
      */
-    app.post("/webhooks", (req, res) => {
+    app.post("/webhooks", async (req, res) => {
         try {
             const shop = req.header("X-Shopify-Shop-Domain");
             const topic = req.header("X-Shopify-Topic");
@@ -22,7 +22,7 @@ export const webhookRoutes = (app) => {
             ];
             if (topic && productTopics.some((t) => topic.includes(t))) {
                 console.log(`🗑️ Invalidating cache for ${shop} (${topic})`);
-                feedCacheStorage.invalidateCache(shop);
+                await feedCacheStorage.invalidateCache(shop);
             }
             res.sendStatus(200);
         }
@@ -39,7 +39,7 @@ export const webhookRoutes = (app) => {
             const { shop } = req.params;
             console.log(`🔄 Manual feed regeneration requested for ${shop}`);
             // Инвалидируем старый кэш
-            feedCacheStorage.invalidateCache(shop);
+            await feedCacheStorage.invalidateCache(shop);
             // Запускаем фоновое обновление
             feedUpdater.updateAllFeeds().catch((err) => {
                 console.error("Background update error:", err);
@@ -60,17 +60,17 @@ export const webhookRoutes = (app) => {
     /**
      * Получить информацию о фидах магазина
      */
-    app.get("/api/feed-info/:shop", (req, res) => {
+    app.get("/api/feed-info/:shop", async (req, res) => {
         try {
             const { shop } = req.params;
-            const feeds = feedCacheStorage.getAllCachedFeeds(shop);
+            const feeds = await feedCacheStorage.getAllCachedFeeds(shop);
             const feedUrls = ["google-shopping", "yandex-yml", "facebook"].map((format) => ({
                 format,
                 url: `${process.env.APP_URL}/feed/${shop}/${format}`,
                 cached: feeds.some((f) => f.format === format),
                 age: feeds.find((f) => f.format === format)
                     ? Math.round((Date.now() -
-                        feeds.find((f) => f.format === format).createdAt) /
+                        new Date(feeds.find((f) => f.format === format).created_at).getTime()) /
                         1000 /
                         60)
                     : null,

@@ -6,14 +6,14 @@ import { PLANS, type PlanName } from "../types/billing.js";
 const router = Router();
 
 // Get pricing page (HTML)
-router.get("/pricing", (req, res) => {
+router.get("/pricing", async (req, res) => {
   const shop = req.query.shop as string;
 
   if (!shop) {
     return res.status(400).send("Missing shop parameter");
   }
 
-  const currentSubscription = billingService.getSubscription(shop);
+  const currentSubscription = await billingService.getSubscription(shop);
   if (!currentSubscription) {
     return res.status(400).send("Failed to get subscription");
   }
@@ -483,7 +483,7 @@ router.get("/select", async (req, res) => {
 
     // If free plan, just activate
     if (planName === "free") {
-      billingService.createFreeSubscription(shop);
+      await billingService.createFreeSubscription(shop);
       return res.redirect(`/pricing?shop=${shop}`);
     }
 
@@ -513,7 +513,7 @@ router.get("/callback", async (req, res) => {
     }
 
     // Activate subscription
-    billingService.activateSubscription(shop, planName, chargeId);
+    await billingService.activateSubscription(shop, planName, chargeId);
 
     res.send(`
 <!DOCTYPE html>
@@ -581,14 +581,14 @@ router.get("/callback", async (req, res) => {
 });
 
 // Get current subscription (API)
-router.get("/subscription", (req, res) => {
+router.get("/subscription", async (req, res) => {
   const shop = req.query.shop as string;
 
   if (!shop) {
     return res.status(400).json({ error: "Missing shop parameter" });
   }
 
-  const subscription = billingService.getSubscription(shop);
+  const subscription = await billingService.getSubscription(shop);
   if (!subscription) {
     return res.status(404).json({ error: "Subscription not found" });
   }
@@ -602,8 +602,8 @@ router.get("/subscription", (req, res) => {
 });
 
 // Get revenue stats (internal API)
-router.get("/stats", (req, res) => {
-  const stats = billingService.getRevenueStats();
+router.get("/stats", async (req, res) => {
+  const stats = await billingService.getRevenueStats();
   res.json(stats);
 });
 

@@ -2,70 +2,88 @@
 import { shopify, sessionStorage } from "../shopify.js";
 import type { PlanName, Subscription } from "../types/billing.js";
 import { PLANS } from "../types/billing.js";
-import { Session } from "@shopify/shopify-api";
-import Database from "better-sqlite3";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-// Use persistent data directory if mounted, otherwise fallback to project root
-const dataDir = process.env.DATA_DIR || path.join(__dirname, "../..");
-const dbPath = path.join(dataDir, "feedbuilder.db");
-const db = new Database(dbPath);
+import { supabase } from "../db.js";
 
 // Initialize subscriptions table
-export function initBillingDb() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS subscriptions (
-      shop TEXT PRIMARY KEY,
-      plan_name TEXT NOT NULL DEFAULT 'free',
-      status TEXT NOT NULL DEFAULT 'active',
-      charge_id TEXT,
-      activated_at INTEGER NOT NULL,
-      expires_at INTEGER,
-      trial_ends_at INTEGER
-    )
-  `);
-  console.log("✅ Billing database initialized");
+export async function initBillingDb() {
+  try {
+    console.log("🔍 Initializing billing database...");
+
+    // Table will be created via Supabase migration or SQL
+    // Check if table exists by trying to query it
+    const { error } = await supabase
+      .from("subscriptions")
+      .select("shop")
+      .limit(1);
+
+    if (error && error.code === "42P01") {
+      // Table doesn't exist
+      console.log("⚠️ Subscriptions table doesn't exist, will be created");
+    } else if (error) {
+      console.error("❌ Error checking subscriptions table:", error);
+    } else {
+      console.log("✅ Subscriptions table exists");
+    }
+
+    console.log("✅ Billing database initialized");
+  } catch (error) {
+    console.error("❌ Error initializing billing DB:", error);
+  }
 }
 
 class BillingService {
   // Get current subscription for shop
-  getSubscription(shop: string): Subscription | null {
-    const row = db
-      .prepare(
-        `
-      SELECT * FROM subscriptions WHERE shop = ?
-    `
-      )
-      .get(shop) as any;
+  async getSubscription(shop: string): Promise<Subscription | null> {
+    try {
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("shop", shop)
+        .single();
 
-    if (!row) {
-      // Create default free subscription
-      return this.createFreeSubscription(shop);
+      if (error) {
+        if (error.code === "PGRST116") {
+          // Not found - create default free subscription
+          return await this.createFreeSubscription(shop);
+        }
+        console.error("Error getting subscription:", error);
+        return await this.createFreeSubscription(shop);
+      }
+
+      return {
+        shop: data.shop,
+        planName: data.plan_name as PlanName,
+        status: data.status,
+        chargeId: data.charge_id,
+        activatedAt: new Date(data.activated_at),
+        expiresAt: data.expires_at ? new Date(data.expires_at) : undefined,
+        trialEndsAt: data.trial_ends_at
+          ? new Date(data.trial_ends_at)
+          : undefined,
+      };
+    } catch (error) {
+      console.error("Error in getSubscription:", error);
+      return null;
     }
-
-    return {
-      shop: row.shop,
-      planName: row.plan_name as PlanName,
-      status: row.status,
-      chargeId: row.charge_id,
-      activatedAt: new Date(row.activated_at),
-      expiresAt: row.expires_at ? new Date(row.expires_at) : undefined,
-      trialEndsAt: row.trial_ends_at ? new Date(row.trial_ends_at) : undefined,
-    };
   }
 
   // Create free subscription for new shop
-  createFreeSubscription(shop: string): Subscription {
-    const now = Date.now();
-    db.prepare(
-      `
-      INSERT OR REPLACE INTO subscriptions (shop, plan_name, status, activated_at)
-      VALUES (?, 'free', 'active', ?)
-    `
-    ).run(shop, now);
+  async createFreeSubscription(shop: string): Promise<Subscription> {
+    const now = new Date().toISOString();
+
+    const { error } = await supabase.from("subscriptions").upsert(
+      {
+        shop,
+        plan_name: "free",
+        status: "active",
+        activated_at: now,
+      },
+      { onConflict: "shop" }
+    );
+
+    if (error) {
+      console.error("Error creating free subscription:", error);
+    }
 
     return {
       shop,
@@ -110,8 +128,12 @@ class BillingService {
 
       if (!session) {
         console.error("❌ No offline session found for:", `offline_${shop}`);
-        console.error("   This means the app was not installed properly or session was lost.");
-        console.error("   The shop owner needs to reinstall the app to get offline access token.");
+        console.error(
+          "   This means the app was not installed properly or session was lost."
+        );
+        console.error(
+          "   The shop owner needs to reinstall the app to get offline access token."
+        );
         throw new Error(
           "Shop session not found. Please reinstall the app to enable billing."
         );
@@ -220,79 +242,104 @@ class BillingService {
   }
 
   // Activate subscription after payment
-  activateSubscription(shop: string, planName: PlanName, chargeId: string) {
-    const now = Date.now();
-    const trialEndsAt = now + 14 * 24 * 60 * 60 * 1000; // 14 days trial
+  async activateSubscription(
+    shop: string,
+    planName: PlanName,
+    chargeId: string
+  ) {
+    const now = new Date().toISOString();
+    const trialEndsAt = new Date(
+      Date.now() + 14 * 24 * 60 * 60 * 1000
+    ).toISOString(); // 14 days trial
 
-    db.prepare(
-      `
-      INSERT OR REPLACE INTO subscriptions
-      (shop, plan_name, status, charge_id, activated_at, trial_ends_at)
-      VALUES (?, ?, 'active', ?, ?, ?)
-    `
-    ).run(shop, planName, chargeId, now, trialEndsAt);
-
-    console.log(
-      `✅ Activated ${planName} subscription for ${shop} (14-day trial)`
+    const { error } = await supabase.from("subscriptions").upsert(
+      {
+        shop,
+        plan_name: planName,
+        status: "active",
+        charge_id: chargeId,
+        activated_at: now,
+        trial_ends_at: trialEndsAt,
+      },
+      { onConflict: "shop" }
     );
+
+    if (error) {
+      console.error("Error activating subscription:", error);
+    } else {
+      console.log(
+        `✅ Activated ${planName} subscription for ${shop} (14-day trial)`
+      );
+    }
   }
 
   // Cancel subscription
-  cancelSubscription(shop: string) {
-    db.prepare(
-      `
-      UPDATE subscriptions SET status = 'cancelled' WHERE shop = ?
-    `
-    ).run(shop);
+  async cancelSubscription(shop: string) {
+    const { error } = await supabase
+      .from("subscriptions")
+      .update({ status: "cancelled" })
+      .eq("shop", shop);
 
-    console.log(`❌ Cancelled subscription for ${shop}`);
+    if (error) {
+      console.error("Error cancelling subscription:", error);
+    } else {
+      console.log(`❌ Cancelled subscription for ${shop}`);
+    }
   }
 
   // Check if subscription is valid
-  isSubscriptionActive(shop: string): boolean {
-    const subscription = this.getSubscription(shop);
+  async isSubscriptionActive(shop: string): Promise<boolean> {
+    const subscription = await this.getSubscription(shop);
     if (!subscription) return false;
 
     return subscription.status === "active" || subscription.status === "trial";
   }
 
   // Get all shops with active subscriptions
-  getSubscribedShops(): string[] {
-    const rows = db
-      .prepare(
-        `
-      SELECT DISTINCT shop FROM subscriptions WHERE status IN ('active', 'trial')
-    `
-      )
-      .all() as any[];
+  async getSubscribedShops(): Promise<string[]> {
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("shop")
+      .in("status", ["active", "trial"]);
 
-    return rows.map((row) => row.shop);
+    if (error) {
+      console.error("Error getting subscribed shops:", error);
+      return [];
+    }
+
+    return data?.map((row) => row.shop) || [];
   }
 
   // Get all active subscriptions (for stats)
-  getActiveSubscriptions(): Subscription[] {
-    const rows = db
-      .prepare(
-        `
-      SELECT * FROM subscriptions WHERE status IN ('active', 'trial')
-    `
-      )
-      .all() as any[];
+  async getActiveSubscriptions(): Promise<Subscription[]> {
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .in("status", ["active", "trial"]);
 
-    return rows.map((row) => ({
-      shop: row.shop,
-      planName: row.plan_name as PlanName,
-      status: row.status,
-      chargeId: row.charge_id,
-      activatedAt: new Date(row.activated_at),
-      expiresAt: row.expires_at ? new Date(row.expires_at) : undefined,
-      trialEndsAt: row.trial_ends_at ? new Date(row.trial_ends_at) : undefined,
-    }));
+    if (error) {
+      console.error("Error getting active subscriptions:", error);
+      return [];
+    }
+
+    return (
+      data?.map((row) => ({
+        shop: row.shop,
+        planName: row.plan_name as PlanName,
+        status: row.status,
+        chargeId: row.charge_id,
+        activatedAt: new Date(row.activated_at),
+        expiresAt: row.expires_at ? new Date(row.expires_at) : undefined,
+        trialEndsAt: row.trial_ends_at
+          ? new Date(row.trial_ends_at)
+          : undefined,
+      })) || []
+    );
   }
 
   // Get revenue stats
-  getRevenueStats() {
-    const subscriptions = this.getActiveSubscriptions();
+  async getRevenueStats() {
+    const subscriptions = await this.getActiveSubscriptions();
     const byPlan = {
       free: 0,
       basic: 0,

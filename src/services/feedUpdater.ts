@@ -42,7 +42,7 @@ export class FeedUpdater {
     console.log("🔄 Starting scheduled feed update job");
 
     try {
-      const shops = billingService.getSubscribedShops();
+      const shops = await billingService.getSubscribedShops();
       const formats: FeedFormat[] = [
         "google-shopping",
         "yandex-yml",
@@ -72,7 +72,7 @@ export class FeedUpdater {
             const result = await builder.build();
 
             // Сохраняем в кэш
-            feedCacheStorage.saveCache(
+            await feedCacheStorage.saveCache(
               shop,
               format,
               result.content,
@@ -142,7 +142,7 @@ export class FeedUpdater {
 
     const result = await builder.build();
 
-    feedCacheStorage.saveCache(
+    await feedCacheStorage.saveCache(
       shop,
       format,
       result.content,
@@ -155,8 +155,8 @@ export class FeedUpdater {
   /**
    * Инвалидировать кэш для магазина (например, при изменении товаров)
    */
-  invalidateCache(shop: string) {
-    feedCacheStorage.invalidateCache(shop);
+  async invalidateCache(shop: string) {
+    await feedCacheStorage.invalidateCache(shop);
     console.log(`🗑️ Cache invalidated for ${shop}`);
   }
 }
