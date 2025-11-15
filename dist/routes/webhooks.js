@@ -24,6 +24,15 @@ export const webhookRoutes = (app) => {
                 console.log(`🗑️ Invalidating cache for ${shop} (${topic})`);
                 await feedCacheStorage.invalidateCache(shop);
             }
+            // Handle app uninstall - cleanup sessions
+            if (topic === "app/uninstalled") {
+                console.log(`🗑️ App uninstalled for ${shop}, cleaning up sessions...`);
+                const { sessionStorage } = await import("../shopify.js");
+                await sessionStorage.deleteSession(`offline_${shop}`);
+                await sessionStorage.deleteSession(`online_${shop}`);
+                await feedCacheStorage.invalidateCache(shop);
+                console.log(`✅ Cleaned up all data for ${shop}`);
+            }
             res.sendStatus(200);
         }
         catch (error) {

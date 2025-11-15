@@ -147,83 +147,130 @@ class BillingService {
         isOnline: session.isOnline,
       });
 
-      // TODO: Use GraphQL Billing API instead of REST (REST is deprecated)
-      // This is for future production implementation
-      const url = `https://${shop}/admin/api/2025-10/recurring_application_charges.json`;
+      // Use GraphQL Admin API for billing (REST is deprecated)
+      const graphqlUrl = `https://${shop}/admin/api/2025-10/graphql.json`;
 
-      console.log("📡 Sending REST API request:", {
-        url,
+      const mutation = `
+        mutation AppSubscriptionCreate($name: String!, $returnUrl: URL!, $test: Boolean, $trialDays: Int, $lineItems: [AppSubscriptionLineItemInput!]!) {
+          appSubscriptionCreate(
+            name: $name
+            returnUrl: $returnUrl
+            test: $test
+            trialDays: $trialDays
+            lineItems: $lineItems
+          ) {
+            appSubscription {
+              id
+            }
+            confirmationUrl
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `;
+
+      const variables = {
+        name: `FeedBuilderly ${plan.displayName} Plan`,
+        returnUrl: `https://${process.env.HOST}/billing/callback?shop=${shop}&plan=${planName}`,
+        test: true, // Always use test mode for development
+        trialDays: 14,
+        lineItems: [
+          {
+            plan: {
+              appRecurringPricingDetails: {
+                price: { amount: plan.price, currencyCode: "USD" },
+                interval: "EVERY_30_DAYS",
+              },
+            },
+          },
+        ],
+      };
+
+      console.log("📡 Sending GraphQL request:", {
+        url: graphqlUrl,
         tokenLength: session.accessToken.length,
-        method: "POST",
+        mutation: "AppSubscriptionCreate",
       });
 
-      const response = await fetch(url, {
+      const response = await fetch(graphqlUrl, {
         method: "POST",
         headers: {
           "X-Shopify-Access-Token": session.accessToken,
           "Content-Type": "application/json",
         } as Record<string, string>,
         body: JSON.stringify({
-          recurring_application_charge: {
-            name: `FeedBuilderly ${plan.displayName} Plan`,
-            price: plan.price,
-            return_url: `https://${process.env.HOST}/billing/callback?shop=${shop}&plan=${planName}`,
-            test: process.env.NODE_ENV !== "production",
-            trial_days: 14,
-          },
+          query: mutation,
+          variables,
         }),
       });
 
-      // Try to parse response body as JSON
-      let data: any = null;
-      const contentType = response.headers.get("content-type");
+      // Parse GraphQL response
+      const responseText = await response.text();
+      console.log("📥 GraphQL Response:", {
+        status: response.status,
+        ok: response.ok,
+        bodyLength: responseText.length,
+      });
 
+      let data: any = null;
       try {
-        // Only attempt to parse as JSON if response has content and correct content type
-        const text = await response.text();
-        if (text && contentType?.includes("application/json")) {
-          data = JSON.parse(text);
-        } else if (!text) {
-          console.warn("⚠️ Response body is empty");
-        } else {
-          console.warn("⚠️ Response is not JSON:", contentType);
-        }
+        data = JSON.parse(responseText);
       } catch (parseError: any) {
         console.error("⚠️ Failed to parse response JSON:", parseError.message);
-        data = null;
+        console.error("Response text:", responseText.substring(0, 500));
       }
 
       if (!response.ok) {
-        console.error("❌ Shopify REST API error:", {
+        console.error("❌ Shopify GraphQL API error:", {
           status: response.status,
           statusText: response.statusText,
           data,
         });
         throw new Error(
           `Shopify API error (${response.status}): ${
-            data?.errors?.toString() || response.statusText
+            data?.errors?.map((e: any) => e.message).join(", ") ||
+            response.statusText
           }`
         );
       }
 
-      if (!data?.recurring_application_charge) {
+      // Check for GraphQL errors
+      if (data?.errors) {
+        console.error("❌ GraphQL errors:", data.errors);
+        throw new Error(
+          `GraphQL errors: ${data.errors.map((e: any) => e.message).join(", ")}`
+        );
+      }
+
+      // Check for user errors
+      const userErrors = data?.data?.appSubscriptionCreate?.userErrors || [];
+      if (userErrors.length > 0) {
+        console.error("❌ User errors:", userErrors);
+        throw new Error(
+          `Subscription errors: ${userErrors
+            .map((e: any) => `${e.field}: ${e.message}`)
+            .join(", ")}`
+        );
+      }
+
+      const subscriptionData = data?.data?.appSubscriptionCreate;
+      if (!subscriptionData?.confirmationUrl) {
         console.error("❌ Invalid response from Shopify:", data);
         throw new Error(
-          `Invalid response from Shopify: ${
-            JSON.stringify(data) || "empty body"
-          }`
+          `Invalid response from Shopify: ${JSON.stringify(data)}`
         );
       }
 
-      const charge = data.recurring_application_charge;
-
+      const subscriptionId = subscriptionData.appSubscription.id;
       console.log(
-        `✅ Created subscription for ${shop}: ${charge.id} — waiting for confirmation`
+        `✅ Created subscription for ${shop}: ${subscriptionId} — waiting for confirmation`
       );
 
       return {
-        confirmationUrl: charge.confirmation_url,
-        chargeId: charge.id.toString(),
+        confirmationUrl: subscriptionData.confirmationUrl,
+        chargeId: subscriptionId,
       };
     } catch (error: any) {
       console.error("❌ Error creating Shopify subscription:", error);
