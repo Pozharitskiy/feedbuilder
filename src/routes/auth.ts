@@ -32,21 +32,18 @@ export const authRoutes = (app: any) => {
     }
   });
 
-  // Auth callback
+  // Auth callback - now handles offline sessions
   console.log("📍 Registering /auth/callback route");
   app.get(
     "/auth/callback",
     shopify.auth.callback(),
     async (req: Request, res: Response) => {
-      console.error("🚨🚨🚨 /auth/callback HIT! Query:", req.query);
-      console.log("🚨🚨🚨 /auth/callback HIT! Query:", req.query);
+      console.log("🚨 /auth/callback HIT! Query:", req.query);
       
       try {
-        // Let shopify middleware handle the session creation
-        // It should populate res.locals.shopify.session
+        // Shopify middleware populates res.locals.shopify.session
         let session = (res as any).locals?.shopify?.session;
         
-        console.error("Session from res.locals:", session ? "YES" : "NO");
         console.log("Session from res.locals:", session ? "YES" : "NO");
         
         if (!session) {
@@ -55,16 +52,22 @@ export const authRoutes = (app: any) => {
           return res.status(500).send("No session in res.locals");
         }
 
-        console.error("✅ Session found! Saving...", session.id);
+        console.log(`✅ Session found! ID: ${session.id}, Shop: ${session.shop}, isOnline: ${session.isOnline}`);
+        
+        // Verify this is an offline session (needed for billing)
+        if (session.isOnline) {
+          console.warn("⚠️ Received online session, but useOnlineTokens=false should give offline");
+        }
+        
         const success = await sessionStorage.storeSession(session);
-        console.error("Save result:", success);
+        console.log("Save result:", success);
         
         if (!success) {
           console.error("❌ Failed to save session");
           return res.status(500).send("Failed to save session");
         }
 
-        console.error("✅ Session saved! Redirecting...");
+        console.log("✅ Session saved successfully! Redirecting to Shopify admin...");
         res.redirect(`https://${session.shop}/admin/apps`);
       } catch (error) {
         console.error("❌ Auth callback error:", error);

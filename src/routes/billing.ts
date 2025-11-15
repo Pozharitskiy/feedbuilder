@@ -401,17 +401,24 @@ router.get("/select", async (req, res) => {
     }
 
     // Check if shop has installed the app
-    // Try to load session from Shopify's session storage
+    // Must load offline session (needed for billing API calls)
     const { shopify, sessionStorage } = await import("../shopify.js");
+    console.log(`🔍 Looking for offline session: offline_${shop}`);
     let session = await sessionStorage.loadSession(`offline_${shop}`);
 
-    // If offline session not found, try online session
     if (!session) {
+      console.log(`⚠️ No offline session found for shop: ${shop}`);
+      // Try online session as fallback (but billing might not work)
       session = await sessionStorage.loadSession(`online_${shop}`);
+      if (session) {
+        console.warn(`⚠️ Found online session for ${shop}, but offline token is required for billing`);
+      }
+    } else {
+      console.log(`✅ Found offline session for ${shop}`);
     }
 
     if (!session) {
-      console.log(`⚠️ No session found for shop: ${shop}`);
+      console.error(`❌ No session found at all for shop: ${shop}`);
       return res.send(`
 <!DOCTYPE html>
 <html>

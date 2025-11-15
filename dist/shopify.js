@@ -35,6 +35,7 @@ export const shopify = shopifyApp({
     },
     sessionStorage,
     appUrl,
+    useOnlineTokens: false, // 🔥 Request offline tokens for billing
 });
 export function ensureInstalled() {
     console.log("ensureInstalled");

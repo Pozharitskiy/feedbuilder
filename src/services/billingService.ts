@@ -105,17 +105,22 @@ class BillingService {
     try {
       // Load OFFLINE session (shop token) - required for billing
       // Must load from Shopify's sessionStorage (in shopify.ts), not from our custom db.ts
+      console.log(`🔍 Billing: Looking for offline session: offline_${shop}`);
       let session = await sessionStorage.loadSession(`offline_${shop}`);
 
       if (!session) {
         console.error("❌ No offline session found for:", `offline_${shop}`);
+        console.error("   This means the app was not installed properly or session was lost.");
+        console.error("   The shop owner needs to reinstall the app to get offline access token.");
         throw new Error(
-          "Shop session not found. Only shop owner can create subscriptions."
+          "Shop session not found. Please reinstall the app to enable billing."
         );
       }
 
-      console.log("📦 Session loaded:", {
+      console.log("📦 Session loaded for billing:", {
         shop: session.shop,
+        sessionId: session.id,
+        isOnline: session.isOnline,
         hasAccessToken: !!session.accessToken,
         tokenLength: session.accessToken?.length,
         tokenPreview: session.accessToken?.substring(0, 10) + "...",
