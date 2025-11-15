@@ -103,22 +103,8 @@ class BillingService {
       throw new Error("Cannot create charge for free plan");
     }
 
-    // Mock mode for development - bypass REST API which is deprecated
-    if (process.env.NODE_ENV !== "production") {
-      console.log(
-        `🎭 MOCK MODE: Generating test confirmation URL for ${planName}`
-      );
-      const mockChargeId = `gid://shopify/AppSubscription/mock-${Date.now()}`;
-      const mockConfirmationUrl = `https://admin.shopify.com/store/${shop.replace(
-        ".myshopify.com",
-        ""
-      )}/billing/${mockChargeId}/AppSubscriptionLineItem/${mockChargeId}`;
-
-      return {
-        confirmationUrl: mockConfirmationUrl,
-        chargeId: mockChargeId,
-      };
-    }
+    // For testing: Use Shopify test charges instead of mock
+    // Mock mode disabled - always use real Shopify API
 
     try {
       // Load OFFLINE session (shop token) - required for billing
@@ -145,7 +131,7 @@ class BillingService {
         isOnline: session.isOnline,
         hasAccessToken: !!session.accessToken,
         tokenLength: session.accessToken?.length,
-        tokenPreview: session.accessToken?.substring(0, 10) + "...",
+        tokenPreview: session.accessToken?.substring(0, 15) + "...",
       });
 
       if (!session.accessToken) {
@@ -153,9 +139,13 @@ class BillingService {
         throw new Error("Session has no access token");
       }
 
-      console.log(
-        `✅ Loaded session for ${shop}, token length: ${session.accessToken.length}`
-      );
+      console.log("✅ Session details:", {
+        shop: session.shop,
+        tokenLength: session.accessToken.length,
+        tokenStartsWith: session.accessToken.substring(0, 4),
+        scope: session.scope,
+        isOnline: session.isOnline,
+      });
 
       // TODO: Use GraphQL Billing API instead of REST (REST is deprecated)
       // This is for future production implementation
