@@ -36,6 +36,8 @@ export const shopify = shopifyApp({
     sessionStorage,
     appUrl,
     useOnlineTokens: false, // 🔥 Request offline tokens for billing
+    isEmbeddedApp: true, // 🔥 Enable embedded app mode
+    exitIframePath: "/exitiframe", // 🔥 Exit iframe for OAuth
 });
 export function ensureInstalled() {
     console.log("ensureInstalled");
