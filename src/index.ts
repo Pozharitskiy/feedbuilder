@@ -43,18 +43,6 @@ await initDatabase();
 await initBillingDb();
 
 app.use(shopify.cspHeaders());
-
-// Exitiframe endpoint for embedded app OAuth
-app.get("/exitiframe", async (req, res) => {
-  const { shop } = req.query;
-  if (!shop || typeof shop !== "string") {
-    return res.status(400).send("Missing shop parameter");
-  }
-  
-  // Redirect to begin OAuth outside iframe
-  return res.redirect(`/auth?shop=${shop}`);
-});
-
 app.use("/install", ensureInstalled());
 
 authRoutes(app);
