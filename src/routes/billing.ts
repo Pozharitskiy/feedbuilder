@@ -494,7 +494,66 @@ router.get("/select", async (req, res) => {
     );
 
     // Redirect to Shopify payment confirmation page
-    res.redirect(confirmationUrl);
+    // Use JavaScript redirect to work in embedded app context
+    res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting to payment...</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0e27;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      color: white;
+    }
+    .loader {
+      text-align: center;
+    }
+    .spinner {
+      border: 4px solid rgba(255,255,255,0.1);
+      border-left-color: #6366f1;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+      margin: 0;
+    }
+    p {
+      font-size: 14px;
+      color: rgba(255,255,255,0.6);
+      margin: 8px 0 0 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="loader">
+    <div class="spinner"></div>
+    <h2>Redirecting to payment...</h2>
+    <p>Please wait while we redirect you to Shopify</p>
+  </div>
+  <script>
+    // Redirect to Shopify Admin confirmation page
+    // Use window.top to break out of iframe if embedded
+    window.top.location.href = "${confirmationUrl}";
+  </script>
+</body>
+</html>
+    `);
   } catch (error: any) {
     console.error("❌ Error creating charge:", error);
     res.status(500).send(`Error: ${error.message}`);
