@@ -173,7 +173,7 @@ class BillingService {
 
       const variables = {
         name: `FeedBuilderly ${plan.displayName} Plan`,
-        returnUrl: `https://${process.env.HOST}/billing/callback?shop=${shop}&plan=${planName}`,
+        returnUrl: `${process.env.APP_URL}/billing/callback?shop=${shop}&plan=${planName}`,
         test: true, // Always use test mode for development
         trialDays: 14,
         lineItems: [
